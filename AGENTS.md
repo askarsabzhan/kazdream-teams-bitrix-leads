@@ -10,14 +10,21 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Repository instructions
 
-- Follow the current phase and the original test specification. Do not implement later phases early.
+- Follow the current phase, the test specification, and authoritative task-owner clarifications. Later clarifications override conflicting adapted-spec text. Do not implement later phases early.
 - Never expose secrets in source code, documentation, UI, tool output, or logs.
 - Do not log HTTP request bodies, Teams text, transcripts, OCR output, names, email addresses, or phone numbers.
-- Power Automate is a mandatory thin integration adapter. Do not replace it with a Microsoft Graph webhook listener.
+- Direct Microsoft Graph integration is required. Do not introduce Power Automate unless it is explicitly requested later.
+- Microsoft credentials are server-only and must never be exposed to browser code or logs.
+- Do not log Microsoft Graph payloads or payload-derived PII.
 - Grouping and deduplication solve different problems and must remain separate.
 - Treat every AI response as untrusted input and validate it before use.
 - Leave uncertain CRM values empty rather than guessing.
-- Classify a lead as Partner only with explicit source evidence. Otherwise use Customer.
+- Require a reliable full name and at least one reliable phone before CRM lead creation. Never invent either value.
+- A duplicate contact enriches the existing canonical lead, and the latest contributing manager becomes the Bitrix responsible manager.
+- Reliable late information updates the existing canonical lead regardless of arrival time.
+- Classify a lead as Partner only with explicit source evidence such as partner, integrator, system integrator, seller, distributor, dealer, or a clear equivalent. Otherwise use Customer.
+- Customer is the mandatory lead-type fallback.
+- Never guess unknown CRM enum values.
 - Keep Bitrix side effects inside the future Bitrix adapter and durable outbox.
 - Design idempotency to survive process restarts and repeated event delivery.
 - Do not introduce Kafka, Kubernetes, microservices, or similar infrastructure for this test.

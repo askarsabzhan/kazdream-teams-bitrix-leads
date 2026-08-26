@@ -1,3 +1,3 @@
 # Teams module
 
-The Power Automate ingestion contract and Teams message model will be implemented in a later phase.
+The direct Microsoft Graph ingestion contract, Teams message model, attachment access, and Teams feedback will be implemented in a later phase.
