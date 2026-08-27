@@ -151,3 +151,23 @@ The audit found one actual state-machine defect: `retryable_failed` had no durab
 The live audit performed no acquisition claim. It reconfirmed five rows with final counts three fetched, one unsupported, and one `GRAPH_ATTACHMENT_NOT_FOUND`; three private objects; zero duplicate attachment identities; zero duplicate paths; and 3/3 object size, MIME, and SHA matches. The historical source message still exists, but its current Graph projection exposes no attachment matching the durable external identity, so the terminal evidence row remains accurate and independent of the three stored artifacts.
 
 The local installed metadata, rather than remembered documentation, showed `file-type@22.0.2` requires Node.js `>=22`. `package.json` and the README now state that minimum without requiring Node 24. The future processing contract was also made explicit: active acquisition states cause the existing bounded processing job to requeue, while unsupported/permanent evidence remains visible but does not poison an otherwise usable message.
+
+## Entry 9 — AI-derived attachment evidence
+
+**Task:**
+
+Produce only derived evidence for the three fetched synthetic attachments: exact speech transcription for audio and visible-text extraction for images. Do not start lead extraction, grouping, deduplication, Bitrix, Teams feedback, or deployment.
+
+**Schema and implementation:**
+
+The initial attachment schema already contained the correct transcript, OCR, processing state, provider/model, and completion fields. One migration added only the missing durable identity, revision, lease/fencing, bounded-attempt, safe-error, image-type, and usage/latency metadata plus three service-role-only RPCs. The worker verifies the private Storage object by size, magic-byte MIME, and SHA-256 before calling narrow transcription or image providers. The official `openai@7.7.0` SDK handles multipart transcription and Responses Structured Outputs; SDK retries are disabled in favor of the five-attempt database state machine.
+
+The first pgTAP run found a real SQL three-valued-logic defect: a new row's empty processing identity compared as `NULL`, so it was not eligible for its first claim. The identity comparison was changed to explicit `false` before any remote migration. A clean local reset then applied all migrations, all 186 database assertions passed, and local and linked-remote database lint reported no schema errors.
+
+**Live compatibility finding:**
+
+The configured `gpt-4o-mini-transcribe` call succeeded. Both initial `gpt-5-mini` vision calls returned the safe provider result `404 / model_not_found` for the supplied OpenAI project; no source content or provider message was logged. Official OpenAI documentation confirms `gpt-4o-mini` supports image inputs, Responses, and Structured Outputs, so the configured vision model was explicitly corrected to `gpt-4o-mini`. The model change created evidence revision 2 for the two images and reset their per-identity attempts to one.
+
+Initial bounded run safe metrics were one audio seen/transcribed, two images seen, zero OCR completions, two failures, and three provider requests. The corrective run processed only the two outdated image identities: two images seen, two OCR completions, zero failures, and two provider requests. Its aggregate vision latency was 9,045 ms with 74,014 input, 93 output, and 74,107 total tokens. The successful transcription row recorded 4,033 ms with 191 input, 49 output, and 240 total tokens. The exact repeated command then saw no candidates and made zero provider requests.
+
+Protected checks returned only `TRANSCRIPT_FIXTURE_CHECK = PASS` and `IMAGE_FIXTURE_CHECK = PASS`. No derived text or fixture contact data was printed or added to documentation.

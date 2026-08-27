@@ -46,6 +46,14 @@ npm run build
 
 Use `npm run test:watch` for focused development.
 
+## AI-derived attachment evidence
+
+`npm run ai:evidence -- --limit=3` processes only current, fetched, supported private attachment artifacts whose derived evidence identity is missing or outdated. Audio is transcribed with the configured OpenAI transcription model; images produce only strict visible-text evidence and a small document-type classification. The command prints aggregate PII-safe metrics and never prints transcript or image text.
+
+`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe` and `OPENAI_VISION_MODEL=gpt-4o-mini`. The latter is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
+
+Phase 4A intentionally retains only the active AI-derived transcript/OCR revision. Original private attachment bytes and their SHA-256 remain immutable, while provider, model, operation, and prompt/schema metadata make the current result reproducible and unambiguous. Previous AI text revisions are not archived in this MVP; a separate versioned evidence table is the production extension if full AI-output history becomes required.
+
 ## Microsoft Graph
 
 Direct Microsoft Graph integration is planned for a later phase and is not implemented in Phase 2. `MS_TENANT_ID`, `MS_CLIENT_ID`, and `MS_CLIENT_SECRET` are server-only; no Microsoft credential may use a `NEXT_PUBLIC_` variable.

@@ -21,6 +21,8 @@ export const serverEnvironmentSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: optionalString,
   DATABASE_URL: optionalString,
   OPENAI_API_KEY: optionalString,
+  OPENAI_TRANSCRIPTION_MODEL: optionalString,
+  OPENAI_VISION_MODEL: optionalString,
   BITRIX_WEBHOOK_BASE_URL: optionalUrl,
   MS_TENANT_ID: optionalString,
   MS_CLIENT_ID: optionalString,
