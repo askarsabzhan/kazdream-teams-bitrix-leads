@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "graph:diagnose": "tsx --conditions=react-server src/modules/teams/graph/cli.ts"
+    "graph:diagnose": "tsx --conditions=react-server src/modules/teams/graph/cli.ts",
+    "teams:ingest": "tsx --conditions=react-server src/modules/teams/ingestion/cli.ts",
+    "test:db": "supabase test db"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

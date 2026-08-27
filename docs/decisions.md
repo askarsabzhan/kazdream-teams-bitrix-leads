@@ -91,3 +91,19 @@ Future raw-message ingestion must treat author identity as nullable because `fro
 The successful bounded catch-up establishes a recovery path after downtime; it does not mean that polling or ingestion scheduling has been implemented.
 
 Normal Teams channel send is not supported for this client-credentials integration. Microsoft documents `ChannelMessage.Send` as delegated; the application permission `Teamwork.Migrate.All` is migration-only and must not be used as a normal feedback workaround. A delegated user flow, Teams bot, or another task-owner-approved mechanism remains an unresolved future decision. The durable `teams_notifications` outbox remains the transport-independent boundary; Phase 3A implements no feedback delivery.
+
+## Phase 3B durable Teams message ingestion
+
+Raw Microsoft Teams messages are persisted before any AI or lead interpretation. `body_content` keeps the manager's source body verbatim; the durable row stores only processing-relevant Graph fields rather than the complete Graph response. `message.from.user.id` is stored when present and remains null when Graph omits the author.
+
+The existing `(source, tenant_id, team_id, channel_id, external_message_id)` uniqueness constraint is the replay boundary. Roots and replies are separate `teams_messages` rows, and replies retain the explicit Graph root external message ID without timing heuristics.
+
+A deterministic SHA-256 source fingerprint distinguishes an unchanged replay from changed source content. Source fields revise only when Graph provides a strictly newer `lastModifiedDateTime`, preventing equal-timestamp endpoint projection differences from causing revision ping-pong. A real newer edit increments `content_revision` and creates the corresponding revision job; an older observation cannot overwrite a newer stored revision.
+
+Phase 3B stores attachment metadata only. Hosted-content IDs and reference attachment IDs plus non-temporary retrieval locator metadata are durable; no attachment bytes, signed download URLs, transcript, or OCR data are fetched or persisted. Attachment metadata is reconciled as a monotonic ID-based union because Graph endpoints may return different partial attachment projections for the same message timestamp.
+
+One service-role-only PostgreSQL RPC atomically persists a message revision, synchronizes its attachment metadata, and inserts the unique `process_teams_message` job. `anon` and `authenticated` cannot execute the RPC, and user-facing RLS is unchanged. Latest ingestion and bounded date-range catch-up use the same normalization and transactional persistence path. No polling scheduler or job processor is implemented in this phase.
+
+The first four Phase 3B migrations are forward-only records of live integration discoveries and are immutable after remote application: the initial ingestion boundary, verification read access, attachment-projection stabilization, and the strictly-newer source-revision guard. A later focused privilege audit found pre-existing unnecessary direct `service_role` table privileges alongside the requested read access, so a fifth forward-only migration revokes them and re-grants only `SELECT`; no applied migration was rewritten or squashed.
+
+Every current message revision has exactly one processing job. Jobs for superseded revisions remain as durable history, while the database uniqueness constraint prevents two jobs for the same job type, aggregate, and revision. The live change from four to five attachment rows was an additional stable reference attachment returned by the catch-up Graph projection; the attachment uniqueness boundary confirmed it was enrichment rather than a duplicate.

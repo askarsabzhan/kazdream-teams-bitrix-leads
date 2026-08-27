@@ -95,3 +95,29 @@ The inline image was returned as message-body hosted content and read as `image/
 **Decision:**
 
 Treat author AAD resolution, reply verification, image read, audio read, hosted-content read, and 7/7 new-message catch-up visibility as confirmed capabilities. Prefer `message.from.user.id` as the future stable manager-mapping identifier when present, but keep raw author nullable and never manufacture or administrator-fallback a missing identity. Catch-up is a verified recovery primitive, not an implemented polling strategy. Normal app-only feedback remains unresolved; `Teamwork.Migrate.All` is prohibited as a workaround, and the existing `teams_notifications` outbox remains the future transport boundary. Do not start ingestion.
+
+## Entry 6 — durable Teams message ingestion
+
+**Task:**
+
+Persist bounded Microsoft Graph message batches, attachment metadata, and processing jobs idempotently without starting AI or attachment byte processing.
+
+**Schema review:**
+
+The Phase 2 tables and uniqueness constraints were retained. A new migration was required because the applied schema made Teams author mandatory and lacked the source modification/fingerprint fields, attachment representation metadata, and transaction boundary required by the verified Graph payload. The migration makes only the author nullable, adds revision/locator metadata, and exposes one service-role-only ingestion RPC.
+
+**Implementation decision:**
+
+Normalize only processing-relevant Graph fields while preserving `body_content` verbatim. Use a deterministic source fingerprint for replay/edit detection, preserve roots and replies separately, and route both latest and bounded catch-up reads through the same RPC. Attachment records are metadata-only and byte retrieval remains deferred.
+
+**Development finding:**
+
+The first pgTAP execution found an ambiguous PL/pgSQL identifier between the RPC output column and `attachments.teams_message_id`. Table aliases fixed the function before any remote migration was attempted. A clean local database reset, all 36 transactional database assertions, and database lint then passed.
+
+The first remote write persisted all nine messages atomically, but its follow-up verification read failed with PostgreSQL code `42501`: Phase 2 explicit grants did not give `service_role` direct read-back access. A separate migration explicitly granted that role `SELECT` on `teams_messages`, `attachments`, and `processing_jobs`; `anon` and `authenticated` permissions remained unchanged.
+
+Live comparison also showed that `getAllMessages` returned one additional reference attachment and a different body projection for one equal-timestamp message. The first reconciliation attempt exposed a revision ping-pong between latest and catch-up reads. The final rule accepts source-body changes only with a strictly newer Graph `lastModifiedDateTime`, while attachment metadata is a monotonic union by stable attachment ID.
+
+Final remote verification persisted nine message rows (eight roots and one reply), five unique attachment metadata rows, and eleven unique revision jobs accumulated during controlled development verification. Two consecutive final latest ingestions and the final catch-up ingestion each reported nine unchanged messages, zero inserted attachments, and zero enqueued jobs. All duplicate counters were zero, reply relationships were valid, and every current message revision had its job.
+
+A focused pre-commit audit of the actual remote ACL found that `service_role` also retained unnecessary direct table privileges from the database defaults. One new forward-only migration revoked all direct privileges on the three ingestion tables and re-granted only `SELECT`; the four already-applied migrations were not changed. The remote schema now exposes only the guarded wrapper RPC to `service_role`, keeps the core RPC closed, and gives neither `anon` nor `authenticated` RPC execution. Fifty-nine PostgreSQL assertions cover these privilege boundaries in addition to the ingestion invariants. Remote technical counts confirmed nine current-revision jobs, two superseded-revision jobs, and zero duplicate jobs.

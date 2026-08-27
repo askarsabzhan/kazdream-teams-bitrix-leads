@@ -7,7 +7,12 @@ import {
   LEAD_TYPES,
   LEAD_WITHOUT_CONTACTS_POLICIES,
 } from "./leads/constants";
-import { MESSAGE_STATES } from "./teams/constants";
+import {
+  MESSAGE_STATES,
+  TEAMS_ATTACHMENT_KINDS,
+  TEAMS_MESSAGE_JOB_TYPE,
+  TEAMS_MESSAGE_SOURCE,
+} from "./teams/constants";
 import { JOB_STATES } from "./workflow/constants";
 
 describe("schema-related domain constants", () => {
@@ -34,6 +39,12 @@ describe("schema-related domain constants", () => {
       "ignored",
       "retryable_failed",
       "permanent_failed",
+    ]);
+    expect(TEAMS_MESSAGE_SOURCE).toBe("microsoft_teams");
+    expect(TEAMS_MESSAGE_JOB_TYPE).toBe("process_teams_message");
+    expect(TEAMS_ATTACHMENT_KINDS).toEqual([
+      "hosted_content",
+      "reference",
     ]);
   });
 
