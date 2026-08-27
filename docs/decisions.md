@@ -68,3 +68,26 @@ The supplied Bitrix webhook is intended for the test but remains an environment-
 - The `teams-attachments` Storage bucket is private and has no public object policy.
 - Bitrix enum IDs are stored only when confirmed; unknown IDs are never guessed.
 - Europe is the only seeded region. Region IDs `51`, `53`, `55`, `57`, `59`, and `61` remain intentionally absent until confirmed.
+
+## Phase 3A Microsoft Graph diagnostics
+
+The supplied client-credentials application successfully authenticated to Microsoft Graph. The live read-only diagnostic found the exact `Kazdream Test WorkSpace` team and the exact private `Test for Askar` channel.
+
+Actual tenant capabilities:
+
+- listing teams and channels succeeds;
+- reading the private channel succeeds: eight root messages were returned and pagination completed;
+- reading replies succeeds: the verification thread returned one reply, with author identity present and an unambiguous root association;
+- the inspected messages expose `id`, `createdDateTime`, `lastModifiedDateTime`, `replyToId`, `messageType`, and `attachments` fields;
+- seven of nine inspected root/reply records expose an AAD author identity; `message.from.user.id` is the preferred stable AAD user object ID for Teams-to-Bitrix manager mapping when present;
+- in the test tenant, an inline/pasted image is represented as message-body hosted content and is readable as bytes through the `chatMessageHostedContent` endpoint (`image/png`, 2,557,523 bytes);
+- in the test tenant, an audio/file attachment is represented as `chatMessageAttachment(reference)`, resolves to a SharePoint/OneDrive DriveItem, and is readable as bytes (`audio/mpeg`, 612,864 bytes);
+- `getAllMessages` succeeds with a bounded date-range query, returns a next link, and recovered all seven of seven newly created target-channel verification records;
+- a bounded user-directory read succeeds;
+- the final verification run returned no Graph permission errors.
+
+Future raw-message ingestion must treat author identity as nullable because `from` may legitimately be absent for system, service, or special messages. It must neither manufacture an author ID nor map a missing author to the Bitrix administrator. Future attachment ingestion must support both observed representations without assuming that every tenant or file type uses the same representation.
+
+The successful bounded catch-up establishes a recovery path after downtime; it does not mean that polling or ingestion scheduling has been implemented.
+
+Normal Teams channel send is not supported for this client-credentials integration. Microsoft documents `ChannelMessage.Send` as delegated; the application permission `Teamwork.Migrate.All` is migration-only and must not be used as a normal feedback workaround. A delegated user flow, Teams bot, or another task-owner-approved mechanism remains an unresolved future decision. The durable `teams_notifications` outbox remains the transport-independent boundary; Phase 3A implements no feedback delivery.

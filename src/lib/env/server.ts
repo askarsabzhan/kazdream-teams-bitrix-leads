@@ -25,6 +25,8 @@ export const serverEnvironmentSchema = z.object({
   MS_TENANT_ID: optionalString,
   MS_CLIENT_ID: optionalString,
   MS_CLIENT_SECRET: optionalString,
+  MS_TEAM_NAME: optionalString,
+  MS_CHANNEL_NAME: optionalString,
 });
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;
