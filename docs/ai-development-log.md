@@ -121,3 +121,33 @@ Live comparison also showed that `getAllMessages` returned one additional refere
 Final remote verification persisted nine message rows (eight roots and one reply), five unique attachment metadata rows, and eleven unique revision jobs accumulated during controlled development verification. Two consecutive final latest ingestions and the final catch-up ingestion each reported nine unchanged messages, zero inserted attachments, and zero enqueued jobs. All duplicate counters were zero, reply relationships were valid, and every current message revision had its job.
 
 A focused pre-commit audit of the actual remote ACL found that `service_role` also retained unnecessary direct table privileges from the database defaults. One new forward-only migration revoked all direct privileges on the three ingestion tables and re-granted only `SELECT`; the four already-applied migrations were not changed. The remote schema now exposes only the guarded wrapper RPC to `service_role`, keeps the core RPC closed, and gives neither `anon` nor `authenticated` RPC execution. Fifty-nine PostgreSQL assertions cover these privilege boundaries in addition to the ingestion invariants. Remote technical counts confirmed nine current-revision jobs, two superseded-revision jobs, and zero duplicate jobs.
+
+## Entry 7 — secure attachment byte acquisition
+
+**Task:**
+
+Acquire the five durable Teams attachment representations into private Supabase Storage with bounded downloads, content validation, deterministic hashes and paths, and restart-safe idempotency, without starting AI, OCR, transcription, Bitrix, or later-phase processing.
+
+**Schema and implementation findings:**
+
+The existing attachment table already had semantically correct state, storage path, MIME, size, and SHA-256 columns. One forward migration added only attempts, leases, safe error codes, and acquisition timestamps plus three service-role-only transition RPCs. A cross-phase audit found that the Phase 3B metadata upsert could otherwise overwrite validated MIME/size after acquisition and then repeatedly enqueue false revisions. The migration therefore preserves acquisition-owned fields for `fetched` rows and updates the private ingestion core comparison; a pgTAP replay regression proves that no new job is created.
+
+The first controlled live command claimed all five rows, stored the hosted PNG, and safely classified four reference attempts as failures. Safe stage diagnostics showed that three direct Graph message-item requests returned HTTP 200 with an empty body, even though a bounded channel collection contained the same three message and attachment identities. The reference resolver was corrected to use a bounded paginated identity fallback on empty/404 item projections, while still ignoring persisted historical `content_url` values. No sensitive URL or content was logged.
+
+The corrective retry claimed three retryable references: two were validated and stored, and one was classified as unsupported. The remaining historical reference was not manually changed because its attachment ID is absent from the current Graph message projection. The next identical acquisition command claimed zero rows and created zero objects.
+
+**Live verification:**
+
+The private bucket contains exactly three objects for three `fetched` rows. All paths match the internal UUID/SHA-only pattern, and private downloads verified 3/3 byte sizes and 3/3 hashes. A fresh Graph read independently matched all three stored rows by size, detected MIME, and SHA-256. The stored hashes are all distinct, so the five source metadata rows produced zero identical-content groups among stored supported representations. Final terminal counts are three fetched, one unsupported, and one permanent failure.
+
+## Entry 8 — Phase 3C pre-commit security and state-machine audit
+
+**Audit finding:**
+
+Catalog inspection confirmed that the three acquisition worker functions are `SECURITY DEFINER`, owned by `postgres`, use an empty `search_path`, and are executable only by `service_role` plus the owner. The trigger helper and ingestion core remain unavailable to `service_role`. On `attachments`, `service_role` and `authenticated` have only direct `SELECT`; neither has `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, or `MAINTAIN`, and `anon` has none of these privileges. Lease IDs fence both success and failure transitions, and new regression tests prove that an old worker cannot act after a stale lease is reclaimed.
+
+The audit found one actual state-machine defect: `retryable_failed` had no durable attempt ceiling even though `fetch_attempts` already existed. Because the original Phase 3C migration was already remote-applied, it was not edited. One forward-only correction migration limits acquisition to five attempts. The fifth retryable failure becomes `permanent_failed / RETRY_LIMIT_EXCEEDED`; if a worker crashes on attempt five, the next claim call terminalizes the expired lease instead of leaving it stuck or reclaiming it indefinitely. The repository accepts this intentional server-side terminal transition.
+
+The live audit performed no acquisition claim. It reconfirmed five rows with final counts three fetched, one unsupported, and one `GRAPH_ATTACHMENT_NOT_FOUND`; three private objects; zero duplicate attachment identities; zero duplicate paths; and 3/3 object size, MIME, and SHA matches. The historical source message still exists, but its current Graph projection exposes no attachment matching the durable external identity, so the terminal evidence row remains accurate and independent of the three stored artifacts.
+
+The local installed metadata, rather than remembered documentation, showed `file-type@22.0.2` requires Node.js `>=22`. `package.json` and the README now state that minimum without requiring Node 24. The future processing contract was also made explicit: active acquisition states cause the existing bounded processing job to requeue, while unsupported/permanent evidence remains visible but does not poison an otherwise usable message.

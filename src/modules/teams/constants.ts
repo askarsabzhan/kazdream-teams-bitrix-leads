@@ -17,3 +17,13 @@ export const TEAMS_ATTACHMENT_KINDS = [
   "hosted_content",
   "reference",
 ] as const;
+
+export const TEAMS_ATTACHMENT_BUCKET = "teams-attachments" as const;
+export const TEAMS_ATTACHMENT_FETCH_STATES = [
+  "pending",
+  "downloading",
+  "fetched",
+  "unsupported",
+  "retryable_failed",
+  "permanent_failed",
+] as const;

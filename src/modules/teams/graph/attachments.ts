@@ -10,7 +10,7 @@ import type {
 
 export const DRIVE_ITEM_CONTENT_ENDPOINT =
   "GET /shares/{encoded-sharing-url}/driveItem/content";
-const DRIVE_ITEM_METADATA_ENDPOINT =
+export const DRIVE_ITEM_METADATA_ENDPOINT =
   "GET /shares/{encoded-sharing-url}/driveItem?$select=id,size,file";
 const HOSTED_CONTENT_LIST_ENDPOINT =
   "GET /teams/{team-id}/channels/{channel-id}/messages/{message-id}/hostedContents";
@@ -98,23 +98,13 @@ function encodeSharingUrl(url: string): string {
     .replaceAll("+", "-")}`;
 }
 
-export function classifyMediaKind(
-  contentType: string,
-  hint?: "image" | "audio",
-): "image" | "audio" | undefined {
-  const normalized = contentType.toLowerCase();
-  if (normalized.startsWith("image/")) return "image";
-  if (normalized.startsWith("audio/")) return "audio";
-  return hint;
-}
-
-export async function readDriveItemReference(
+export async function resolveDriveItemReference(
   client: GraphClient,
   attachment: GraphAttachmentRecord,
 ): Promise<{
-  contentType: string;
-  byteLength: number;
-  mediaKind?: "image" | "audio";
+  contentEndpoint: string;
+  declaredContentType?: string;
+  declaredSize?: number;
 }> {
   if (!attachment.contentUrl) {
     throw new GraphRequestError({
@@ -135,11 +125,45 @@ export async function readDriveItemReference(
       ? driveItem.file
       : undefined;
   const declaredContentType = nonEmptyString(fileFacet?.mimeType);
+  const declaredSize =
+    isRecord(driveItem) &&
+    typeof driveItem.size === "number" &&
+    Number.isSafeInteger(driveItem.size) &&
+    driveItem.size >= 0
+      ? driveItem.size
+      : undefined;
+
+  return {
+    contentEndpoint: `/shares/${segment(sharingToken)}/driveItem/content`,
+    ...(declaredContentType ? { declaredContentType } : {}),
+    ...(declaredSize !== undefined ? { declaredSize } : {}),
+  };
+}
+
+export function classifyMediaKind(
+  contentType: string,
+  hint?: "image" | "audio",
+): "image" | "audio" | undefined {
+  const normalized = contentType.toLowerCase();
+  if (normalized.startsWith("image/")) return "image";
+  if (normalized.startsWith("audio/")) return "audio";
+  return hint;
+}
+
+export async function readDriveItemReference(
+  client: GraphClient,
+  attachment: GraphAttachmentRecord,
+): Promise<{
+  contentType: string;
+  byteLength: number;
+  mediaKind?: "image" | "audio";
+}> {
+  const resolved = await resolveDriveItemReference(client, attachment);
   const bytes = await client.getByteMetadata(
-    `/shares/${segment(sharingToken)}/driveItem/content`,
+    resolved.contentEndpoint,
     DRIVE_ITEM_CONTENT_ENDPOINT,
   );
-  const contentType = declaredContentType ?? bytes.contentType;
+  const contentType = resolved.declaredContentType ?? bytes.contentType;
   const mediaKind = classifyMediaKind(contentType, attachment.mediaKindHint);
 
   return {

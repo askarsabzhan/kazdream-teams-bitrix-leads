@@ -166,6 +166,85 @@ export class GraphClient {
     };
   }
 
+  async getBoundedBytes(
+    endpoint: string,
+    safeEndpoint: string,
+    maximumBytes: number,
+  ): Promise<{ contentType: string; bytes: Uint8Array }> {
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) {
+      throw createLocalGraphError(
+        safeEndpoint,
+        "INVALID_BYTE_LIMIT",
+        "The Graph byte limit is invalid.",
+      );
+    }
+
+    const response = await this.get(endpoint, safeEndpoint);
+    const contentLengthHeader = response.headers.get("content-length");
+    const contentLength =
+      contentLengthHeader !== null && /^\d+$/.test(contentLengthHeader)
+        ? Number(contentLengthHeader)
+        : null;
+    if (contentLength !== null && contentLength > maximumBytes) {
+      await response.body?.cancel();
+      throw createLocalGraphError(
+        safeEndpoint,
+        "FILE_TOO_LARGE",
+        "The Graph response exceeds the configured byte limit.",
+      );
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      return {
+        contentType:
+          response.headers.get("content-type")?.split(";", 1)[0]?.trim() ||
+          "unknown",
+        bytes: new Uint8Array(),
+      };
+    }
+
+    const chunks: Uint8Array[] = [];
+    let byteLength = 0;
+    try {
+      for (;;) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        byteLength += chunk.value.byteLength;
+        if (byteLength > maximumBytes) {
+          await reader.cancel();
+          throw createLocalGraphError(
+            safeEndpoint,
+            "FILE_TOO_LARGE",
+            "The Graph response exceeds the configured byte limit.",
+          );
+        }
+        chunks.push(chunk.value);
+      }
+    } catch (error) {
+      if (error instanceof GraphRequestError) throw error;
+      throw createLocalGraphError(
+        safeEndpoint,
+        "GRAPH_BODY_READ_FAILED",
+        "The Graph response body could not be read.",
+      );
+    }
+
+    const bytes = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    return {
+      contentType:
+        response.headers.get("content-type")?.split(";", 1)[0]?.trim() ||
+        "unknown",
+      bytes,
+    };
+  }
+
   private async get(endpoint: string, safeEndpoint: string): Promise<Response> {
     const accessToken = await this.accessTokenProvider();
     const url = this.resolveGraphUrl(endpoint, safeEndpoint);

@@ -16,7 +16,7 @@ Confirmed decisions are recorded in [docs/decisions.md](docs/decisions.md).
 
 Requirements:
 
-- an active Node.js LTS release;
+- Node.js 22 or newer (`file-type@22` requires Node.js `>=22`);
 - npm;
 - Docker Desktop with the Docker engine running for local Supabase commands.
 
@@ -79,7 +79,8 @@ The ground-truth dataset and evaluation runner will be added in a later phase.
 
 ## Deployment
 
-Railway deployment is planned but is not configured in Phase 1.
+Railway deployment is planned but is not configured yet. Its future runtime
+must be pinned to Node.js 22 or newer before deployment.
 
 ## Security baseline
 
