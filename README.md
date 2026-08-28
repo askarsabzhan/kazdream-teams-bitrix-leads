@@ -2,11 +2,11 @@
 
 ## Project purpose
 
-This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, a durable Bitrix synchronization worker, and an authenticated lead-management UI. Deployment remains later work.
+This project processes exhibition lead evidence from Microsoft Teams into validated Bitrix24 leads. It includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, a durable Bitrix synchronization worker, and an authenticated lead-management UI.
 
 ## Architecture overview
 
-The planned architecture is a TypeScript modular monolith with a Next.js App Router web/API process, a background worker, and durable PostgreSQL state. Microsoft Teams data enters directly through Microsoft Graph, is processed and validated by the application, and is delivered to Bitrix24 through durable jobs and outboxes. Feedback to Teams also uses Microsoft Graph.
+The production architecture is a TypeScript modular monolith deployed as two Railway services from the same repository: a Next.js Web process and one continuously running Worker process. Both use the linked Supabase PostgreSQL project as durable state. Microsoft Teams data enters directly through Microsoft Graph and reaches Bitrix24 through durable jobs and outboxes.
 
 The adapted written specification contained a Power Automate section. The task owner later clarified that this candidate implementation should use the supplied Microsoft API credentials and integrate directly through Microsoft Graph.
 
@@ -29,11 +29,21 @@ npm run dev
 
 The application is available at `http://localhost:3000`. Open `/login` to use the authenticated lead workspace. The liveness endpoint is `GET /api/health/live`.
 
+Run one bounded production-pipeline iteration locally with `npm run worker:once`. Run the continuous worker with `npm run worker`.
+
 ## Environment variables
 
 Copy `.env.example` to `.env.local` and add values only for the feature being exercised. Empty integration variables do not prevent a normal build.
 
 Never commit `.env`, `.env.local`, access tokens, webhook URLs, or service-role keys. Server-only values must not be imported into browser code.
+
+Production uses these variable names:
+
+- Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`;
+- Microsoft Graph: `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TEAM_NAME`, `MS_CHANNEL_NAME`;
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_EXTRACTION_MODEL`, `OPENAI_SUMMARY_MODEL`;
+- Bitrix24: `BITRIX_WEBHOOK_BASE_URL`;
+- worker runtime: `WORKER_POLL_INTERVAL_MS` (default `10000`, accepted range `5000`–`15000`).
 
 ### Evaluator accounts
 
@@ -124,11 +134,24 @@ The Bitrix24 adapter is server-only and writes exclusively through the durable C
 
 The ground-truth dataset and evaluation runner will be added in a later phase.
 
-## Deployment
+## Production runtime
 
-Railway deployment is planned but is not configured yet. Its future runtime
-must be pinned to Node.js 22 or newer before deployment.
+Railway runs two services from this repository on Node.js 22 or newer:
+
+- Web starts with `npm run start`, exposes the authenticated UI and `GET /api/health/live`, and requires only the server variables used by web routes;
+- Worker starts with `npm run worker`, has all integration variables, and has no public domain;
+- Supabase provides authoritative PostgreSQL state, Auth, and private attachment storage.
+
+Each bounded worker iteration reuses the existing workers in this order:
+
+`Teams → attachments → AI evidence → grouping → extraction → canonicalization → Bitrix`
+
+The worker catches up recent Teams history at startup, then polls every `WORKER_POLL_INTERVAL_MS`. Durable database identities, leases, constraints, and outboxes make replay safe. The take-home deployment intentionally runs exactly one Worker replica; horizontal worker coordination is outside this MVP.
+
+One-shot diagnostics remain available through the existing commands such as `npm run graph:diagnose`, `npm run teams:ingest`, and `npm run worker:once`.
+
+Standard Microsoft Graph channel-message sending is unavailable to the current app-only client-credentials setup. No migration API or unsupported send workaround is used. `TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND` until a legitimate delegated or otherwise supported send transport is supplied.
 
 ## Security baseline
 
-Application logs must not contain HTTP request bodies, Teams text, transcripts, OCR output, visitor PII, or secrets. No general-purpose logger is introduced during bootstrap because the application does not log operational events yet.
+Application logs must not contain HTTP request bodies, Teams text, transcripts, OCR output, visitor PII, or secrets. Production worker logs contain only stage names, aggregate numeric counts, durations, and allow-listed safe error codes.

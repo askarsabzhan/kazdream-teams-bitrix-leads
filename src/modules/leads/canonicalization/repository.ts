@@ -156,10 +156,12 @@ export class SupabaseCanonicalizationRepository
 {
   constructor(private readonly client: SupabaseClient) {}
 
-  async loadEligibleGroups(): Promise<EligibleCanonicalGroup[]> {
-    const { data, error } = await this.client.rpc(
-      "load_eligible_canonicalization_groups",
-    );
+  async loadEligibleGroups(limit?: number): Promise<EligibleCanonicalGroup[]> {
+    const { data, error } = limit
+      ? await this.client.rpc("load_eligible_canonicalization_groups_bounded", {
+          p_limit: limit,
+        })
+      : await this.client.rpc("load_eligible_canonicalization_groups");
     if (error || !Array.isArray(data)) {
       throw new CanonicalizationError(databaseCode(error?.code));
     }

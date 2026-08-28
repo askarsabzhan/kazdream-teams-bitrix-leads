@@ -9,6 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "worker": "tsx --conditions=react-server src/modules/runtime/cli.ts",
+    "worker:once": "tsx --conditions=react-server src/modules/runtime/cli.ts --once",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -35,6 +37,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
+    "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -46,7 +49,6 @@
     "eslint-config-next": "16.3.3",
     "supabase": "2.115.0",
     "tailwindcss": "^4",
-    "tsx": "^4.23.12",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }

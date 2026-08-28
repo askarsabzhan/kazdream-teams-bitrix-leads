@@ -31,6 +31,7 @@ export const serverEnvironmentSchema = z.object({
   MS_CLIENT_SECRET: optionalString,
   MS_TEAM_NAME: optionalString,
   MS_CHANNEL_NAME: optionalString,
+  WORKER_POLL_INTERVAL_MS: optionalString,
 });
 
 export type ServerEnvironment = z.infer<typeof serverEnvironmentSchema>;

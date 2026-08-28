@@ -38,10 +38,11 @@ async function recordSummaryFailure(options: {
 export async function processCanonicalization(options: {
   repository: CanonicalizationRepository;
   summaryProvider: CanonicalSummaryProvider;
+  groupLimit?: number;
   summaryLimit: number;
   summaryLeaseSeconds: number;
 }): Promise<CanonicalizationSummary> {
-  const groups = await options.repository.loadEligibleGroups();
+  const groups = await options.repository.loadEligibleGroups(options.groupLimit);
   const summary: CanonicalizationSummary = {
     groupsSeen: groups.length,
     canonicalLeadsCreated: 0,

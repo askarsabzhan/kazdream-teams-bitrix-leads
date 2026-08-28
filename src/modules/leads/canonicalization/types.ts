@@ -119,7 +119,7 @@ export interface CanonicalSummaryProvider {
 }
 
 export interface CanonicalizationRepository {
-  loadEligibleGroups(): Promise<EligibleCanonicalGroup[]>;
+  loadEligibleGroups(limit?: number): Promise<EligibleCanonicalGroup[]>;
   resolveGroup(options: {
     group: EligibleCanonicalGroup;
     identityKeys: CanonicalIdentityKey[];
