@@ -52,11 +52,17 @@ Use `npm run test:watch` for focused development.
 
 Grouping algorithm `v1` creates pre-lead manager-side encounter groups. It does not call OpenAI, extract canonical lead fields, deduplicate visitors across managers, create Bitrix records, or send Teams feedback. Repeating the command against unchanged source state is a persistence no-op.
 
+## Group candidate extraction
+
+`npm run groups:extract -- --limit 10 --lease-seconds 300` consumes only current `process_lead_group` jobs and performs one evidence-grounded Structured Outputs request for each claimed group identity. The command prints only aggregate counts, provider latency/usage, and protected PASS/FAIL checks. It never prints Teams text, transcripts, OCR, candidate values, names, phones, or emails.
+
+`OPENAI_EXTRACTION_MODEL` is server-only and defaults to `gpt-4o-mini`. Candidate extraction preserves source contact spelling, rejects invented evidence references and unsupported contact values, derives Partner/Customer and full-name-plus-phone eligibility deterministically, and stores campaign/source as configuration. It does not merge groups, create canonical leads, generate the final Russian summary, call Bitrix, or write Teams.
+
 ## AI-derived attachment evidence
 
 `npm run ai:evidence -- --limit=3` processes only current, fetched, supported private attachment artifacts whose derived evidence identity is missing or outdated. Audio is transcribed with the configured OpenAI transcription model; images produce only strict visible-text evidence and a small document-type classification. The command prints aggregate PII-safe metrics and never prints transcript or image text.
 
-`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe` and `OPENAI_VISION_MODEL=gpt-4o-mini`. The latter is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
+`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`, `OPENAI_VISION_MODEL=gpt-4o-mini`, and `OPENAI_EXTRACTION_MODEL=gpt-4o-mini`. The vision default is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
 
 Phase 4A intentionally retains only the active AI-derived transcript/OCR revision. Original private attachment bytes and their SHA-256 remain immutable, while provider, model, operation, and prompt/schema metadata make the current result reproducible and unambiguous. Previous AI text revisions are not archived in this MVP; a separate versioned evidence table is the production extension if full AI-output history becomes required.
 

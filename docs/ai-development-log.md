@@ -197,3 +197,39 @@ Remote catalog inspection confirmed that all three grouping functions are owned 
 The audit found three connected SQL defects in the already-applied Phase 4B migration. Lease-bound attachment `downloading` was omitted from active evidence, the grouping fingerprint included provider/model and other metadata that cannot change deterministic signals, and reassignment could retain an empty pre-lead source group. The applied migration was not edited. One forward-only correction makes active acquisition/processing states explicit, fingerprints only grouping-relevant source/evidence state and successful evidence content, and removes empty pre-lead groups inside the locked transaction before incrementing surviving group revisions.
 
 New database regressions prove that newly processed evidence changes the fingerprint and can move a previously ambiguous message into a compatible group even though its old message job already succeeded. They also prove that provider metadata with unchanged evidence text is a no-op, a newer source revision has its own unique processing job, terminal unavailable evidence reopens a deferred decision, and reassignment removes the empty source group while incrementing the target once. The corrected migration was applied remotely, one controlled reassessment updated the two existing group fingerprints/revisions without changing memberships, and the identical replay was a zero-revision no-op. No source content or PII was printed, and no OpenAI request occurred.
+
+## Entry 12 — evidence-grounded group candidate extraction
+
+**Task:**
+
+Convert complete Phase 4B conversation groups into current structured candidates and field-level provenance without canonical deduplication, canonical lead creation, Russian summaries, Bitrix, Teams writes, or deployment.
+
+**Schema and implementation:**
+
+The existing `field_evidence` table was reusable but required a nullable `lead_group_id` target because it previously required `lead_id`. One forward-only migration adds that minimal target plus extraction state/identity/revision fields and current candidate JSON on `lead_groups`. The existing `processing_jobs` uniqueness boundary is reused for `process_lead_group`; a trigger handles new group revisions and the migration backfills current groups.
+
+The worker receives one ordered group-only evidence package from a fenced service-role RPC. The official OpenAI SDK uses `gpt-4o-mini`, a closed Structured Outputs object, a versioned extraction prompt, and no SDK retries. Application code revalidates every evidence ID and conservatively checks source support for names, companies, phones, and emails; it retains suspicious spelling and rejects unsupported enum values at field scope. Partner/Customer, campaign/source, and name-plus-phone eligibility are deterministic post-processing, not free model classifications.
+
+**Development findings:**
+
+The first new pgTAP run exposed a test sequencing issue: a set-returning claim RPC performs its lease transition before an outer SQL `WHERE` filters returned rows. The test was corrected to release every claimed group and to use one consistent identity during bounded-retry verification. This reinforced the worker rule that claims are batch operations and must never be treated as a target-by-ID precheck. A schema-lint warning about a record variable used only for `FOUND` was removed by using `PERFORM`. No remote migration or provider request had occurred at either point.
+
+**Live verification:**
+
+The single Phase 4C migration applied remotely after clean local reset and local/linked database lint. The final suite has 125 passing unit tests and 301 passing pgTAP assertions. The migration backfilled exactly two pending current-revision group jobs for the two existing groups, with no duplicate job identities.
+
+The bounded first extraction saw and processed two groups with two OpenAI requests, zero failures, two candidate updates, 31 new field-evidence rows, and two completed jobs. Aggregate provider latency was 9,576 ms with 2,206 input, 552 output, and 2,758 total tokens. All five protected checks passed without printing candidate/source data. The exact repeated command saw zero groups, made zero OpenAI requests, and created zero candidate, evidence, or job changes while all checks remained PASS.
+
+The final protected remote audit found two current extracted candidates at extraction revision one and attempt one, both eligible, with one deterministic Partner and one Customer fallback. Both candidates carry the configured Hannover Messe 2026 / 63 / EXHIBITION values. All 31 provenance rows are accepted, unique, source-linked or valid system defaults, and contain no copied evidence text. Both current group jobs are succeeded, no group references a canonical lead, and Phase 4C contains no canonical-lead creation path.
+
+## Entry 13 — Phase 4C focused pre-commit audit
+
+**Audit finding:**
+
+Remote catalog inspection confirmed that the four worker-facing extraction RPCs are owned by `postgres`, are `SECURITY DEFINER`, have an empty `search_path`, and are executable by `service_role` but not PUBLIC, `anon`, or `authenticated`. The three internal helpers are closed to all application roles. `service_role` has read-only access to groups, group field evidence, and processing jobs and has no direct privilege on canonical `leads`; all application roles lack direct mutation privileges on the audited tables.
+
+The audit found one real revision-state defect in the already-remote migration: claiming a changed extraction identity cleared the last successful candidate before the replacement succeeded. The applied migration was not edited. One forward-only correction adds `candidate_source_fingerprint` and a database guard that preserves the successful payload, eligibility, completion metadata, usage metrics, and successful revision through processing and failed retries; only fenced completion replaces them. New pgTAP regressions cover both prompt-identity failure and grouping-revision failure.
+
+Deterministic validation was also tightened without provider calls. Negated Partner terms remain Customer, explicit Customer language carries source provenance, and simultaneous positive Customer/Partner evidence becomes an explicit conflict with the safe Customer fallback. Labeled company contradictions now follow the same null-plus-conflicted-evidence policy as names. Protected aggregate output now additionally verifies eligibility derivation, Customer-default provenance, and the exact campaign configuration/evidence rows.
+
+The candidate payload remains the single Phase 4D source for Hannover Messe 2026 / Bitrix value 63 / EXHIBITION; no unrelated campaign row or `campaign_id` is attached in Phase 4C. The audit performed no OpenAI call and did not print source text or candidate PII.
