@@ -17,6 +17,7 @@
     "teams:ingest": "tsx --conditions=react-server src/modules/teams/ingestion/cli.ts",
     "attachments:acquire": "tsx --conditions=react-server src/modules/teams/attachments/cli.ts",
     "ai:evidence": "tsx --conditions=react-server src/modules/ai/evidence/cli.ts",
+    "group:conversations": "tsx --conditions=react-server src/modules/leads/grouping/cli.ts",
     "test:db": "supabase test db"
   },
   "dependencies": {

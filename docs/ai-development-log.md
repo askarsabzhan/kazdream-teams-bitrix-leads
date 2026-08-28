@@ -171,3 +171,29 @@ The configured `gpt-4o-mini-transcribe` call succeeded. Both initial `gpt-5-mini
 Initial bounded run safe metrics were one audio seen/transcribed, two images seen, zero OCR completions, two failures, and three provider requests. The corrective run processed only the two outdated image identities: two images seen, two OCR completions, zero failures, and two provider requests. Its aggregate vision latency was 9,045 ms with 74,014 input, 93 output, and 74,107 total tokens. The successful transcription row recorded 4,033 ms with 191 input, 49 output, and 240 total tokens. The exact repeated command then saw no candidates and made zero provider requests.
 
 Protected checks returned only `TRANSCRIPT_FIXTURE_CHECK = PASS` and `IMAGE_FIXTURE_CHECK = PASS`. No derived text or fixture contact data was printed or added to documentation.
+
+## Entry 10 — deterministic evidence-first conversation grouping
+
+**Task:**
+
+Group Teams roots/replies and available transcript/OCR evidence into versioned pre-lead encounter groups without lead extraction, canonical deduplication, OpenAI, Teams writes, or Bitrix calls.
+
+**Schema and implementation:**
+
+The existing `lead_groups` and `lead_group_messages` tables were structurally suitable: `lead_id` was already nullable and the membership table can represent roots and replies. One forward-only migration added deterministic group keys, algorithm/revision metadata, grouping states and source fingerprints, a unique one-group-per-message boundary, a bounded evidence loader, and an advisory-locked service-role mutation RPC. No parallel conversation table or group-level extraction job was introduced.
+
+The pure TypeScript `v1` engine uses explicit replies first, exact email/phone next, and conservatively labeled name/company pairs only as secondary evidence. Independent manager encounters remain separate. Unfinished attachment evidence defers processing; terminal unavailable evidence does not block the available source document. Replays are persisted as no-ops and no OpenAI provider is imported or called.
+
+**Live verification finding:**
+
+The first live persistence run correctly created two groups and five memberships from nine synthetic messages, leaving four messages ambiguous. Its distinct-contact protected check initially failed because the verifier required the remote fixture to contain three strong-identity roots inside an arbitrary 40-second window; that exact fixture shape was not present, although the required three-contacts-in-40-seconds algorithm case already passed in unit tests. The verifier was corrected to test the actual live invariant pairwise: same-manager independent roots with different explicit strong identities must not share a group. No database row was manually changed. The identical replay then reported nine unchanged messages, zero new groups, memberships, or revisions, and all three protected checks passed with zero OpenAI requests.
+
+## Entry 11 — Phase 4B focused reassessment audit
+
+**Audit findings:**
+
+Remote catalog inspection confirmed that all three grouping functions are owned by `postgres`, are `SECURITY DEFINER`, use an empty `search_path`, and deny execution to PUBLIC, `anon`, and `authenticated`. Only the bounded loader and mutation RPC are executable by `service_role`; the fingerprint helper remains private. Direct table mutation is unavailable to `service_role`, `authenticated`, and `anon`.
+
+The audit found three connected SQL defects in the already-applied Phase 4B migration. Lease-bound attachment `downloading` was omitted from active evidence, the grouping fingerprint included provider/model and other metadata that cannot change deterministic signals, and reassignment could retain an empty pre-lead source group. The applied migration was not edited. One forward-only correction makes active acquisition/processing states explicit, fingerprints only grouping-relevant source/evidence state and successful evidence content, and removes empty pre-lead groups inside the locked transaction before incrementing surviving group revisions.
+
+New database regressions prove that newly processed evidence changes the fingerprint and can move a previously ambiguous message into a compatible group even though its old message job already succeeded. They also prove that provider metadata with unchanged evidence text is a no-op, a newer source revision has its own unique processing job, terminal unavailable evidence reopens a deferred decision, and reassignment removes the empty source group while incrementing the target once. The corrected migration was applied remotely, one controlled reassessment updated the two existing group fingerprints/revisions without changing memberships, and the identical replay was a zero-revision no-op. No source content or PII was printed, and no OpenAI request occurred.

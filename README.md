@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-This project will process exhibition lead messages from Microsoft Teams and deliver validated contacts and leads to Bitrix24. The current implementation contains the application bootstrap and local database foundation; integrations and business processing are not implemented yet.
+This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, and deterministic pre-lead conversation grouping. Canonical lead extraction, deduplication, and CRM delivery are not implemented yet.
 
 ## Architecture overview
 
@@ -45,6 +45,12 @@ npm run build
 ```
 
 Use `npm run test:watch` for focused development.
+
+## Conversation grouping
+
+`npm run group:conversations -- --limit=100` deterministically groups the bounded current Teams source set using explicit reply structure, exact normalized email/phone signals, and conservative labeled name/company hints. Only successful transcript/OCR evidence is included; unfinished evidence is deferred and terminal unavailable evidence is ignored. The command prints aggregate counts and protected PASS/FAIL assertions without source text or contact values.
+
+Grouping algorithm `v1` creates pre-lead manager-side encounter groups. It does not call OpenAI, extract canonical lead fields, deduplicate visitors across managers, create Bitrix records, or send Teams feedback. Repeating the command against unchanged source state is a persistence no-op.
 
 ## AI-derived attachment evidence
 
