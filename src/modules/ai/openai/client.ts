@@ -7,6 +7,7 @@ export const DEFAULT_OPENAI_TRANSCRIPTION_MODEL =
   "gpt-4o-mini-transcribe";
 export const DEFAULT_OPENAI_VISION_MODEL = "gpt-4o-mini";
 export const DEFAULT_OPENAI_EXTRACTION_MODEL = "gpt-4o-mini";
+export const DEFAULT_OPENAI_SUMMARY_MODEL = "gpt-4o-mini";
 export const OPENAI_TIMEOUT_MS = 60_000;
 
 export function createOpenAIClient(apiKey: string): OpenAI {

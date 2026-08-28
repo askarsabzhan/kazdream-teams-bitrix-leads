@@ -20,6 +20,7 @@
     "group:conversations": "tsx --conditions=react-server src/modules/leads/grouping/cli.ts",
     "groups:extract": "tsx --conditions=react-server src/modules/leads/extraction/cli.ts",
     "groups:verify": "tsx --conditions=react-server src/modules/leads/extraction/verify-cli.ts",
+    "leads:canonicalize": "tsx --conditions=react-server src/modules/leads/canonicalization/cli.ts",
     "test:db": "supabase test db"
   },
   "dependencies": {

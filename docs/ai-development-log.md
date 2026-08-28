@@ -233,3 +233,21 @@ The audit found one real revision-state defect in the already-remote migration: 
 Deterministic validation was also tightened without provider calls. Negated Partner terms remain Customer, explicit Customer language carries source provenance, and simultaneous positive Customer/Partner evidence becomes an explicit conflict with the safe Customer fallback. Labeled company contradictions now follow the same null-plus-conflicted-evidence policy as names. Protected aggregate output now additionally verifies eligibility derivation, Customer-default provenance, and the exact campaign configuration/evidence rows.
 
 The candidate payload remains the single Phase 4D source for Hannover Messe 2026 / Bitrix value 63 / EXHIBITION; no unrelated campaign row or `campaign_id` is attached in Phase 4C. The audit performed no OpenAI call and did not print source text or candidate PII.
+
+## Entry 14 — deterministic canonical lead resolution and enrichment
+
+**Task:**
+
+Resolve only eligible current group candidates into restart-safe canonical leads, enrich them from every linked group, assign the latest real Teams contributor, and generate one evidence-grounded Russian analytical summary per canonical source identity. Bitrix, Teams writes, deployment, and fuzzy/AI deduplication remain outside Phase 4D.
+
+**Schema and implementation:**
+
+One forward-only migration reuses `leads`, `lead_groups.lead_id`, and group field evidence, and adds a unique `(kind, normalized_value)` identity-key boundary plus canonical payload/source and fenced summary state. Advisory-locked service-role RPCs perform deterministic resolution and recomposition. Exact normalized phone/email are strong keys; exact supported full name plus company is secondary. Conflicting strong keys persist a safe identity conflict without merging. Canonical list fields are stable unions, scalar disagreements remain null/conflicted, Customer default cannot override explicit Partner evidence, and only meaningful payload/owner/campaign changes advance canonical revision.
+
+The summary adapter uses the official OpenAI Responses API with a closed Russian-summary schema, `gpt-4o-mini` by default, a versioned evidence-only prompt, and SDK retries disabled. Its durable identity includes canonical source/revision plus provider/model/prompt, and lease fencing prevents stale completion. Operational output and verification remain aggregate-only.
+
+**Focused and live verification:**
+
+Ten Phase 4D unit assertions and 25 targeted pgTAP assertions passed. They cover strong and secondary matching, no fuzzy merge, cross-manager duplicate resolution, late enrichment/revision, multiple contacts, ownership chronology, identity collision safety, concurrent identity boundaries, Partner precedence, exact replay, and summary idempotency. Local and linked database lint found no schema errors.
+
+The bounded first remote run saw two existing distinct eligible groups, created two canonical leads, linked both groups, made exactly two summary requests, completed both, and reported zero conflicts or failures. Aggregate usage was 2,207 input, 147 output, and 2,354 total tokens. The exact replay created and updated zero leads, linked zero groups, made zero summary requests, and reported zero failures. A protected aggregate database query confirmed two linked groups, two canonical leads at revision one, zero duplicate identity sets, and two succeeded summaries; no source or candidate PII was printed.

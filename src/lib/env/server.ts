@@ -24,6 +24,7 @@ export const serverEnvironmentSchema = z.object({
   OPENAI_TRANSCRIPTION_MODEL: optionalString,
   OPENAI_VISION_MODEL: optionalString,
   OPENAI_EXTRACTION_MODEL: optionalString,
+  OPENAI_SUMMARY_MODEL: optionalString,
   BITRIX_WEBHOOK_BASE_URL: optionalUrl,
   MS_TENANT_ID: optionalString,
   MS_CLIENT_ID: optionalString,

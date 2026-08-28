@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, and deterministic pre-lead conversation grouping. Canonical lead extraction, deduplication, and CRM delivery are not implemented yet.
+This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, and canonical lead resolution. CRM mapping and delivery are not implemented yet.
 
 ## Architecture overview
 
@@ -58,11 +58,17 @@ Grouping algorithm `v1` creates pre-lead manager-side encounter groups. It does 
 
 `OPENAI_EXTRACTION_MODEL` is server-only and defaults to `gpt-4o-mini`. Candidate extraction preserves source contact spelling, rejects invented evidence references and unsupported contact values, derives Partner/Customer and full-name-plus-phone eligibility deterministically, and stores campaign/source as configuration. It does not merge groups, create canonical leads, generate the final Russian summary, call Bitrix, or write Teams.
 
+## Canonical lead resolution
+
+`npm run leads:canonicalize` processes only eligible current group candidates. It uses exact normalized phone/email matches, with exact supported full-name-plus-company as a secondary key, and persists identity collisions without merging. Linked groups are recomposed into one canonical lead; reliable late evidence enriches union fields and the latest actual Teams contributor becomes responsible. A changed canonical revision receives one evidence-grounded Russian analytical summary through the fenced durable summary state machine. Exact replay creates no lead or revision and makes no OpenAI request.
+
+`OPENAI_SUMMARY_MODEL` is server-only and defaults to `gpt-4o-mini`. Operational output is aggregate and excludes source evidence, candidate values, names, phones, and emails. Phase 4D does not call Bitrix or write to Teams.
+
 ## AI-derived attachment evidence
 
 `npm run ai:evidence -- --limit=3` processes only current, fetched, supported private attachment artifacts whose derived evidence identity is missing or outdated. Audio is transcribed with the configured OpenAI transcription model; images produce only strict visible-text evidence and a small document-type classification. The command prints aggregate PII-safe metrics and never prints transcript or image text.
 
-`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`, `OPENAI_VISION_MODEL=gpt-4o-mini`, and `OPENAI_EXTRACTION_MODEL=gpt-4o-mini`. The vision default is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
+`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`, `OPENAI_VISION_MODEL=gpt-4o-mini`, `OPENAI_EXTRACTION_MODEL=gpt-4o-mini`, and `OPENAI_SUMMARY_MODEL=gpt-4o-mini`. The vision default is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
 
 Phase 4A intentionally retains only the active AI-derived transcript/OCR revision. Original private attachment bytes and their SHA-256 remain immutable, while provider, model, operation, and prompt/schema metadata make the current result reproducible and unambiguous. Previous AI text revisions are not archived in this MVP; a separate versioned evidence table is the production extension if full AI-output history becomes required.
 
