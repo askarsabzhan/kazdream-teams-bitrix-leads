@@ -21,6 +21,7 @@
     "groups:extract": "tsx --conditions=react-server src/modules/leads/extraction/cli.ts",
     "groups:verify": "tsx --conditions=react-server src/modules/leads/extraction/verify-cli.ts",
     "leads:canonicalize": "tsx --conditions=react-server src/modules/leads/canonicalization/cli.ts",
+    "demo-users:create": "tsx --conditions=react-server src/modules/auth/demo-users-cli.ts",
     "bitrix:discover": "tsx --conditions=react-server src/modules/bitrix/discovery-cli.ts",
     "bitrix:sync": "tsx --conditions=react-server src/modules/bitrix/cli.ts",
     "test:db": "supabase test db"

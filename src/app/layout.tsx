@@ -3,14 +3,17 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "KazDream Teams → Bitrix Leads",
-  description: "Exhibition lead ingestion service",
+  title: {
+    default: "KazDream Lead Workspace",
+    template: "%s · KazDream Lead Workspace",
+  },
+  description: "Authenticated exhibition lead management workspace",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="ru" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="en" className="h-full antialiased">
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }
