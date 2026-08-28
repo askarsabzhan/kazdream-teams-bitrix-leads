@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, and a durable Bitrix synchronization worker. Minimal UI and deployment remain later work.
+This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, a durable Bitrix synchronization worker, and an authenticated lead-management UI. Deployment remains later work.
 
 ## Architecture overview
 
@@ -27,13 +27,28 @@ npm install
 npm run dev
 ```
 
-The application is available at `http://localhost:3000`. The liveness endpoint is `GET /api/health/live`.
+The application is available at `http://localhost:3000`. Open `/login` to use the authenticated lead workspace. The liveness endpoint is `GET /api/health/live`.
 
 ## Environment variables
 
 Copy `.env.example` to `.env.local` and add values only for the feature being exercised. Empty integration variables do not prevent a normal build.
 
 Never commit `.env`, `.env.local`, access tokens, webhook URLs, or service-role keys. Server-only values must not be imported into browser code.
+
+### Evaluator accounts
+
+There is no public registration UI. New Supabase Auth users still default to the `user` role. After applying all migrations, an operator with the local server environment can create or refresh one normal evaluator and one admin without committing passwords:
+
+```powershell
+$env:DEMO_USER_EMAIL = '<normal-user-email>'
+$env:DEMO_USER_PASSWORD = '<temporary-password-at-least-12-characters>'
+$env:DEMO_ADMIN_EMAIL = '<admin-email>'
+$env:DEMO_ADMIN_PASSWORD = '<temporary-password-at-least-12-characters>'
+npm.cmd run demo-users:create
+Remove-Item Env:DEMO_USER_EMAIL, Env:DEMO_USER_PASSWORD, Env:DEMO_ADMIN_EMAIL, Env:DEMO_ADMIN_PASSWORD
+```
+
+The command uses Supabase Admin Auth only on the server, promotes only the selected admin through a service-role-only database function, and prints aggregate status without identities or credentials.
 
 ## Testing
 
@@ -80,7 +95,7 @@ Phase 4A intentionally retains only the active AI-derived transcript/OCR revisio
 
 ## Microsoft Graph
 
-Direct Microsoft Graph integration is planned for a later phase and is not implemented in Phase 2. `MS_TENANT_ID`, `MS_CLIENT_ID`, and `MS_CLIENT_SECRET` are server-only; no Microsoft credential may use a `NEXT_PUBLIC_` variable.
+Direct Microsoft Graph integration is used by the ingestion and attachment workflows. `MS_TENANT_ID`, `MS_CLIENT_ID`, and `MS_CLIENT_SECRET` are server-only; no Microsoft credential may use a `NEXT_PUBLIC_` variable.
 
 ## Selected test campaign
 
@@ -88,7 +103,7 @@ The selected MVP test configuration is Hannover Messe 2026 with source `EXHIBITI
 
 ## Supabase
 
-The repository contains a local Supabase configuration and timestamped PostgreSQL migrations under `supabase/migrations/`. It is not linked to a remote Supabase project, and no remote database credentials are configured.
+The repository contains local Supabase configuration and timestamped PostgreSQL migrations under `supabase/migrations/`. Link and migration credentials remain operator-local and must never be committed.
 
 With Docker running, start the local services and recreate the schema from migrations with:
 
@@ -97,13 +112,13 @@ npx supabase start
 npx supabase db reset
 ```
 
-New Auth users receive the `user` application role automatically, including users whose sign-up metadata asks for a different role. After the intended demo Auth users exist, an authorized database operator or existing administrator must explicitly promote the selected profile by setting `public.profiles.role` to `admin`. There is no public role-changing endpoint and no frontend role assignment.
+New Auth users receive the `user` application role automatically, including users whose sign-up metadata asks for a different role. The documented demo-user command can promote only its selected admin through a service-role-only function. There is no public role-changing endpoint and no frontend role assignment.
 
-After an explicit future remote link and review, pending migrations can be applied with `npx supabase db push`. Neither linking nor pushing is part of Phase 2.
+After explicit remote linking and review, an operator can inspect pending migrations with `npx supabase db push --dry-run` before applying them.
 
 ## Bitrix24
 
-The Bitrix24 adapter is planned for a later phase. No Bitrix REST calls are implemented.
+The Bitrix24 adapter is server-only and writes exclusively through the durable CRM outbox worker. Browser requests never receive the webhook or call Bitrix synchronously.
 
 ## Evaluation
 
