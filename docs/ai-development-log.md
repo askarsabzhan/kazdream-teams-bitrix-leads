@@ -251,3 +251,19 @@ The summary adapter uses the official OpenAI Responses API with a closed Russian
 Ten Phase 4D unit assertions and 25 targeted pgTAP assertions passed. They cover strong and secondary matching, no fuzzy merge, cross-manager duplicate resolution, late enrichment/revision, multiple contacts, ownership chronology, identity collision safety, concurrent identity boundaries, Partner precedence, exact replay, and summary idempotency. Local and linked database lint found no schema errors.
 
 The bounded first remote run saw two existing distinct eligible groups, created two canonical leads, linked both groups, made exactly two summary requests, completed both, and reported zero conflicts or failures. Aggregate usage was 2,207 input, 147 output, and 2,354 total tokens. The exact replay created and updated zero leads, linked zero groups, made zero summary requests, and reported zero failures. A protected aggregate database query confirmed two linked groups, two canonical leads at revision one, zero duplicate identity sets, and two succeeded summaries; no source or candidate PII was printed.
+
+## Entry 15 — durable Bitrix lead synchronization
+
+**Task:**
+
+Map successful canonical revisions to Bitrix through a durable outbox, exact manager mapping, remote creation idempotency, separate analytical/source storage, and local sync state without UI, Teams feedback, or deployment.
+
+**Implementation:**
+
+One forward-only migration reuses `crm_outbox`, `manager_mappings`, and canonical leads. It adds five-attempt lease fencing, an immutable primary source-group key, durable CRM/comment stages, blocked state, revision-aware enqueueing, and service-role-only transition RPCs. The server-only adapter uses native fetch with a 600 ms minimum interval and safe error classification. Exact AAD→Graph email/UPN→Bitrix email mapping has no fallback. Remote lookup by `UF_CRM_TEAMS_GROUP_ID` always precedes add, while existing/recovered leads use update. Summary remains in `COMMENTS`; revision-marked original source goes to a separate timeline comment.
+
+Eleven focused unit tests and 20 focused pgTAP assertions pass. They cover payload/enums/null omission, manager exact/missing/ambiguous behavior, lookup-before-add, remote recovery, the add-success/local-finalization replay window, existing-ID update, latest ownership, source/summary separation, retry classification, safe output, outbox uniqueness, fencing, five attempts, blocked state, durable Bitrix binding, synced completion, comment replay suppression, and new-revision enqueueing.
+
+**Current live gate:**
+
+The only supplied webhook value was found consistently in the original user attachments and used in memory without printing or persisting it. The first read-only `crm.lead.fields` discovery request returned the safe Bitrix code `INVALID_CREDENTIALS`. No CRM mutation, remote migration, manager discovery, or live sync was attempted. A current valid `BITRIX_WEBHOOK_BASE_URL` is required before the mandated discovery PASS checks and single controlled live synchronization can proceed.

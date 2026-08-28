@@ -2,7 +2,7 @@
 
 ## Project purpose
 
-This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, and canonical lead resolution. CRM mapping and delivery are not implemented yet.
+This project processes exhibition lead evidence from Microsoft Teams toward validated Bitrix24 leads. The current implementation includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, and a durable Bitrix synchronization worker. Minimal UI and deployment remain later work.
 
 ## Architecture overview
 
@@ -63,6 +63,12 @@ Grouping algorithm `v1` creates pre-lead manager-side encounter groups. It does 
 `npm run leads:canonicalize` processes only eligible current group candidates. It uses exact normalized phone/email matches, with exact supported full-name-plus-company as a secondary key, and persists identity collisions without merging. Linked groups are recomposed into one canonical lead; reliable late evidence enriches union fields and the latest actual Teams contributor becomes responsible. A changed canonical revision receives one evidence-grounded Russian analytical summary through the fenced durable summary state machine. Exact replay creates no lead or revision and makes no OpenAI request.
 
 `OPENAI_SUMMARY_MODEL` is server-only and defaults to `gpt-4o-mini`. Operational output is aggregate and excludes source evidence, candidate values, names, phones, and emails. Phase 4D does not call Bitrix or write to Teams.
+
+## Bitrix synchronization
+
+`npm run bitrix:sync` performs read-only Bitrix discovery before claiming the durable CRM outbox. It validates the actual standard/custom fields, confirmed enumeration IDs, `EXHIBITION` source, Teams provenance fields, and user-directory access. If discovery differs from the confirmed contract, the command stops before CRM writes.
+
+The worker maps the latest Teams contributor through Microsoft Graph mail/UPN to one exact Bitrix user email, then performs remote idempotency lookup by an immutable primary conversation-group ID before add. Existing or recovered leads are updated, and `COMMENTS` receives the current Russian analytical summary. Original manager source remains separate in a deterministic revision-specific timeline comment. Output contains only discovery PASS/FAIL checks and aggregate created/updated/recovered/blocked/failed counts.
 
 ## AI-derived attachment evidence
 
