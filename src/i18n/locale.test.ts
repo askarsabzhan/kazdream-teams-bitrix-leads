@@ -44,6 +44,17 @@ describe("UI locale", () => {
     expect(publicNames).toEqual([
       "NEXT_PUBLIC_SUPABASE_URL",
       "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+      "NEXT_PUBLIC_BITRIX_PORTAL_URL",
     ]);
+    expect(example).not.toContain("NEXT_PUBLIC_BITRIX_WEBHOOK");
+  });
+
+  it("provides the new workflow and usability labels in both locales", () => {
+    expect(getDictionary("ru").detail.receivedFromTeams).toBe("Получено из Teams");
+    expect(getDictionary("ru").detail.evidenceBusinessRule).toBe("Бизнес-правило");
+    expect(getDictionary("ru").detail.copy).toBe("Скопировать");
+    expect(getDictionary("en").detail.receivedFromTeams).toBe("Received from Teams");
+    expect(getDictionary("en").detail.evidenceBusinessRule).toBe("Business rule");
+    expect(getDictionary("en").detail.copy).toBe("Copy");
   });
 });

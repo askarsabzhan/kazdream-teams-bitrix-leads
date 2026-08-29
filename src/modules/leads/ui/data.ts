@@ -2,6 +2,10 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { canonicalLeadPayloadSchema } from "@/modules/leads/canonicalization/schema";
+import {
+  groupEvidenceSources,
+  type EvidenceSource,
+} from "@/modules/leads/ui/evidence-sources";
 
 export type LeadListItem = {
   id: string;
@@ -23,6 +27,8 @@ export type LeadMessage = {
   replyToExternalId: string | null;
   source: string;
   createdAt: string;
+  groupingState: string;
+  groupedAt: string | null;
   text: string | null;
   attachments: Array<{
     id: string;
@@ -30,6 +36,7 @@ export type LeadMessage = {
     mimeType: string | null;
     fetchState: string;
     processingState: string;
+    processedAt: string | null;
     transcript: string | null;
     ocr: string | null;
     canPreview: boolean;
@@ -56,12 +63,18 @@ export type LeadDetail = {
   revision: number;
   lastErrorCode: string | null;
   syncedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
   manager: string | null;
+  evidenceSources: Record<string, EvidenceSource[]>;
   groups: Array<{
     id: string;
     status: string;
     extractionState: string;
     canonicalizationState: string;
+    createdAt: string;
+    extractionCompletedAt: string | null;
+    canonicalizedAt: string | null;
     messages: LeadMessage[];
   }>;
   conflicts: Array<{ fieldName: string; evidenceText: string | null }>;
@@ -126,7 +139,7 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
   const leadResult = await supabase
     .from("leads")
     .select(
-      "id, full_name, company_name, job_title, phones, emails, lead_type, region_key, priority_key, product_interest_keys, summary_ru, summary_state, status, crm_status, bitrix_lead_id, crm_synced_revision, revision, crm_last_error_code, crm_synced_at, canonical_payload",
+      "id, full_name, company_name, job_title, phones, emails, lead_type, region_key, priority_key, product_interest_keys, summary_ru, summary_state, status, crm_status, bitrix_lead_id, crm_synced_revision, revision, crm_last_error_code, crm_synced_at, canonical_payload, created_at, updated_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -137,7 +150,7 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
 
   const groupResult = await supabase
     .from("lead_groups")
-    .select("id, status, extraction_state, canonicalization_state, created_at")
+    .select("id, status, extraction_state, canonicalization_state, created_at, extraction_revision, extraction_completed_at, canonicalized_at")
     .eq("lead_id", id)
     .order("created_at", { ascending: true });
   if (groupResult.error) throw new Error("Unable to load source groups.");
@@ -157,7 +170,7 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
     ? await supabase
         .from("teams_messages")
         .select(
-          "id, external_message_id, reply_to_external_message_id, source, source_created_at, typed_text",
+          "id, external_message_id, reply_to_external_message_id, source, source_created_at, typed_text, grouping_state, grouped_at",
         )
         .in("id", messageIds)
         .order("source_created_at", { ascending: true })
@@ -168,12 +181,21 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
     ? await supabase
         .from("attachments")
         .select(
-          "id, teams_message_id, file_name, mime_type, fetch_state, processing_state, transcript_text, ocr_text, storage_path, is_current",
+          "id, teams_message_id, file_name, mime_type, fetch_state, processing_state, transcript_text, ocr_text, storage_path, is_current, processed_at",
         )
         .in("teams_message_id", messageIds)
         .eq("is_current", true)
     : { data: [], error: null };
   if (attachmentsResult.error) throw new Error("Unable to load source attachments.");
+
+  const fieldEvidenceResult = groupIds.length
+    ? await supabase
+        .from("field_evidence")
+        .select("lead_group_id, extraction_revision, field_name, method")
+        .in("lead_group_id", groupIds)
+        .eq("validation_status", "accepted")
+    : { data: [], error: null };
+  if (fieldEvidenceResult.error) throw new Error("Unable to load field provenance.");
 
   const conflictsResult = await supabase
     .from("field_evidence")
@@ -192,6 +214,7 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
       mimeType: attachment.mime_type,
       fetchState: attachment.fetch_state,
       processingState: attachment.processing_state,
+      processedAt: attachment.processed_at,
       transcript: attachment.transcript_text,
       ocr: attachment.ocr_text,
       canPreview:
@@ -211,6 +234,8 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
         replyToExternalId: message.reply_to_external_message_id,
         source: message.source,
         createdAt: message.source_created_at,
+        groupingState: message.grouping_state,
+        groupedAt: message.grouped_at,
         text: message.typed_text,
         attachments: attachmentsByMessage.get(message.id) ?? [],
       } satisfies LeadMessage,
@@ -226,6 +251,17 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
 
   const canonical = canonicalLeadPayloadSchema.safeParse(lead.canonical_payload);
   const labels = await loadManagerLabels([id]);
+  const currentExtractionRevisions = new Map(
+    groupRows.map((group) => [group.id, group.extraction_revision]),
+  );
+  const evidenceSources = groupEvidenceSources(
+    (fieldEvidenceResult.data ?? []).flatMap((row) =>
+      row.lead_group_id &&
+      row.extraction_revision === currentExtractionRevisions.get(row.lead_group_id)
+        ? [{ fieldName: row.field_name, method: row.method }]
+        : [],
+    ),
+  );
 
   return {
     id: lead.id,
@@ -249,12 +285,18 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
     revision: lead.revision,
     lastErrorCode: lead.crm_last_error_code,
     syncedAt: lead.crm_synced_at,
+    createdAt: lead.created_at,
+    updatedAt: lead.updated_at,
     manager: labels.get(id) ?? null,
+    evidenceSources,
     groups: groupRows.map((group) => ({
       id: group.id,
       status: group.status,
       extractionState: group.extraction_state,
       canonicalizationState: group.canonicalization_state,
+      createdAt: group.created_at,
+      extractionCompletedAt: group.extraction_completed_at,
+      canonicalizedAt: group.canonicalized_at,
       messages: (messageIdsByGroup.get(group.id) ?? []).flatMap((messageId) => {
         const message = messagesById.get(messageId);
         return message ? [message] : [];

@@ -114,6 +114,27 @@ export type Dictionary = {
     ocr: string;
     sourceImage: string;
     conflicts: string;
+    processingTimeline: string;
+    processingTimelineHint: string;
+    processingDuration: string;
+    receivedFromTeams: string;
+    sourcesProcessed: string;
+    groupedStage: string;
+    dataExtracted: string;
+    leadCreatedUpdated: string;
+    syncedWithBitrix: string;
+    evidenceTeams: string;
+    evidenceReply: string;
+    evidenceTranscription: string;
+    evidenceOcr: string;
+    evidenceBusinessRule: string;
+    expandEvidence: string;
+    copy: string;
+    copied: string;
+    openInBitrix: string;
+    secondsShort: string;
+    minutesShort: string;
+    hoursShort: string;
   };
   admin: {
     eyebrow: string;

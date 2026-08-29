@@ -10,6 +10,7 @@ import {
   formatDateTime,
   localizeValue,
 } from "@/modules/leads/ui/format";
+import { calculateLeadCounters } from "@/modules/leads/ui/stats";
 
 export default async function LeadsPage({
   searchParams,
@@ -30,11 +31,12 @@ export default async function LeadsPage({
       (!safeCrm || crmFilterStatus(lead.crmStatus) === safeCrm)
     );
   });
+  const counters = calculateLeadCounters(leads);
   const stats = [
-    { label: dictionary.leads.total, value: leads.length },
-    { label: dictionary.leads.synced, value: leads.filter((lead) => lead.crmStatus === "succeeded").length },
-    { label: dictionary.leads.partners, value: leads.filter((lead) => lead.leadType.toLocaleLowerCase() === "partner").length },
-    { label: dictionary.leads.customers, value: leads.filter((lead) => lead.leadType.toLocaleLowerCase() === "customer").length },
+    { label: dictionary.leads.total, value: counters.total },
+    { label: dictionary.leads.synced, value: counters.synced },
+    { label: dictionary.leads.customers, value: counters.customers },
+    { label: dictionary.leads.partners, value: counters.partners },
   ];
 
   return (

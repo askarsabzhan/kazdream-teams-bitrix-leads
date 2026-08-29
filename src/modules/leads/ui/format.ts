@@ -27,6 +27,22 @@ export function localizeValue(value: string | null | undefined, locale: Locale):
   return localized ?? humanize(value);
 }
 
+export function formatDuration(
+  valueMs: number | null,
+  locale: Locale,
+  units: { seconds: string; minutes: string; hours: string },
+): string {
+  if (valueMs === null || valueMs < 0 || !Number.isFinite(valueMs)) return "—";
+  const seconds = valueMs / 1000;
+  const formatter = new Intl.NumberFormat(locale === "ru" ? "ru-RU" : "en-GB", {
+    maximumFractionDigits: seconds < 60 ? 1 : 0,
+  });
+  if (seconds < 60) return `${formatter.format(seconds)} ${units.seconds}`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${formatter.format(minutes)} ${units.minutes}`;
+  return `${formatter.format(minutes / 60)} ${units.hours}`;
+}
+
 export function crmFilterStatus(status: string): "synced" | "pending" | "failed" {
   if (status === "succeeded") return "synced";
   if (["retryable_failed", "permanent_failed", "blocked"].includes(status)) return "failed";

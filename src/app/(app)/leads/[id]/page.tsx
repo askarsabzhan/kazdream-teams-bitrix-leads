@@ -4,24 +4,60 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { z } from "zod";
 
+import { CopyValueButton } from "@/components/copy-value-button";
 import { CrmRetryButton } from "@/components/crm-retry-button";
 import { StatusBadge, statusTone } from "@/components/status-badge";
 import { getI18n } from "@/i18n/server";
+import { buildPublicBitrixLeadUrl } from "@/modules/bitrix/public-link";
 import { requireViewer } from "@/modules/auth/session";
 import { loadLeadDetail } from "@/modules/leads/ui/data";
+import type { EvidenceSource } from "@/modules/leads/ui/evidence-sources";
 import {
   displayValue,
+  formatDuration,
   formatDateTime,
   localizeValue,
 } from "@/modules/leads/ui/format";
+import {
+  buildLeadWorkflow,
+  type WorkflowStageKey,
+} from "@/modules/leads/ui/workflow";
 
-function DetailField({ label, children }: { label: string; children: ReactNode }) {
+function DetailField({
+  label,
+  badges,
+  children,
+}: {
+  label: string;
+  badges?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">{label}</dt>
+      <dt className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+        <span>{label}</span>
+        {badges}
+      </dt>
       <dd className="mt-2 break-words text-sm leading-6 text-zinc-100">{children}</dd>
     </div>
   );
+}
+
+function EvidenceSourceBadges({
+  sources,
+  labels,
+}: {
+  sources: readonly EvidenceSource[];
+  labels: Record<EvidenceSource, string>;
+}) {
+  return sources.map((source) => (
+    <span
+      className="rounded-full border border-sky-400/20 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-sky-200"
+      key={source}
+    >
+      {labels[source]}
+    </span>
+  ));
 }
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +67,40 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   if (!id.success) notFound();
   const lead = await loadLeadDetail(id.data);
   if (!lead) notFound();
+  const evidenceLabels: Record<EvidenceSource, string> = {
+    teams: dictionary.detail.evidenceTeams,
+    reply: dictionary.detail.evidenceReply,
+    transcription: dictionary.detail.evidenceTranscription,
+    ocr: dictionary.detail.evidenceOcr,
+    businessRule: dictionary.detail.evidenceBusinessRule,
+  };
+  const workflowLabels: Record<WorkflowStageKey, string> = {
+    received: dictionary.detail.receivedFromTeams,
+    sourcesProcessed: dictionary.detail.sourcesProcessed,
+    grouped: dictionary.detail.groupedStage,
+    extracted: dictionary.detail.dataExtracted,
+    canonicalized: dictionary.detail.leadCreatedUpdated,
+    synced: dictionary.detail.syncedWithBitrix,
+  };
+  const workflow = buildLeadWorkflow({
+    crmStatus: lead.crmStatus,
+    syncedAt: lead.syncedAt,
+    groups: lead.groups,
+  });
+  const bitrixLeadUrl = buildPublicBitrixLeadUrl(
+    process.env.NEXT_PUBLIC_BITRIX_PORTAL_URL,
+    lead.bitrixLeadId,
+  );
+  const copyLabels = {
+    copy: dictionary.detail.copy,
+    copied: dictionary.detail.copied,
+  };
+  const badgesFor = (fieldName: string) => (
+    <EvidenceSourceBadges
+      labels={evidenceLabels}
+      sources={lead.evidenceSources[fieldName] ?? []}
+    />
+  );
 
   return (
     <div className="space-y-7">
@@ -60,22 +130,44 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">{dictionary.detail.contact}</p>
           <h2 className="mt-2 text-xl font-semibold">{dictionary.detail.contactDescription}</h2>
           <dl className="mt-6 grid gap-x-8 gap-y-6 sm:grid-cols-2">
-            <DetailField label={dictionary.detail.fullName}>{displayValue(lead.fullName)}</DetailField>
-            <DetailField label={dictionary.detail.company}>{displayValue(lead.company)}</DetailField>
-            <DetailField label={dictionary.detail.jobTitle}>{displayValue(lead.jobTitle)}</DetailField>
+            <DetailField badges={badgesFor("person.full_name")} label={dictionary.detail.fullName}>{displayValue(lead.fullName)}</DetailField>
+            <DetailField badges={badgesFor("person.company")} label={dictionary.detail.company}>{displayValue(lead.company)}</DetailField>
+            <DetailField badges={badgesFor("person.job_title")} label={dictionary.detail.jobTitle}>{displayValue(lead.jobTitle)}</DetailField>
             <DetailField label={dictionary.detail.responsible}>{displayValue(lead.manager)}</DetailField>
-            <DetailField label={dictionary.detail.phones}>{lead.phones.length ? lead.phones.join(", ") : "—"}</DetailField>
-            <DetailField label={dictionary.detail.emails}>{lead.emails.length ? lead.emails.join(", ") : "—"}</DetailField>
+            <DetailField badges={badgesFor("phones")} label={dictionary.detail.phones}>
+              {lead.phones.length ? (
+                <ul className="space-y-2">
+                  {lead.phones.map((phone) => (
+                    <li className="flex items-center justify-between gap-3" key={phone}>
+                      <span className="break-all">{phone}</span>
+                      <CopyValueButton labels={copyLabels} value={phone} />
+                    </li>
+                  ))}
+                </ul>
+              ) : "—"}
+            </DetailField>
+            <DetailField badges={badgesFor("emails")} label={dictionary.detail.emails}>
+              {lead.emails.length ? (
+                <ul className="space-y-2">
+                  {lead.emails.map((email) => (
+                    <li className="flex items-center justify-between gap-3" key={email}>
+                      <span className="break-all">{email}</span>
+                      <CopyValueButton labels={copyLabels} value={email} />
+                    </li>
+                  ))}
+                </ul>
+              ) : "—"}
+            </DetailField>
           </dl>
         </section>
 
         <section className="rounded-2xl border border-zinc-800/90 bg-zinc-900/65 p-5 sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">{dictionary.detail.classification}</p>
           <dl className="mt-6 grid gap-x-6 gap-y-6 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-            <DetailField label={dictionary.detail.leadType}>{localizeValue(lead.leadType, locale)}</DetailField>
-            <DetailField label={dictionary.detail.priority}>{localizeValue(lead.priority, locale)}</DetailField>
-            <DetailField label={dictionary.detail.region}>{localizeValue(lead.region, locale)}</DetailField>
-            <DetailField label={dictionary.detail.productInterests}>
+            <DetailField badges={badgesFor("lead_type")} label={dictionary.detail.leadType}>{localizeValue(lead.leadType, locale)}</DetailField>
+            <DetailField badges={badgesFor("priority")} label={dictionary.detail.priority}>{localizeValue(lead.priority, locale)}</DetailField>
+            <DetailField badges={badgesFor("region")} label={dictionary.detail.region}>{localizeValue(lead.region, locale)}</DetailField>
+            <DetailField badges={badgesFor("product_interests")} label={dictionary.detail.productInterests}>
               {lead.productInterests.length
                 ? lead.productInterests.map((interest) => localizeValue(interest, locale)).join(", ")
                 : "—"}
@@ -83,6 +175,46 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </dl>
         </section>
       </div>
+
+      <section className="rounded-2xl border border-zinc-800/90 bg-zinc-900/65 p-5 sm:p-6">
+        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">{dictionary.detail.processingTimeline}</p>
+            <p className="mt-2 text-sm text-zinc-500">{dictionary.detail.processingTimelineHint}</p>
+          </div>
+          {workflow.durationMs !== null ? (
+            <p className="text-sm text-zinc-400">
+              {dictionary.detail.processingDuration}: {formatDuration(workflow.durationMs, locale, {
+                seconds: dictionary.detail.secondsShort,
+                minutes: dictionary.detail.minutesShort,
+                hours: dictionary.detail.hoursShort,
+              })}
+            </p>
+          ) : null}
+        </div>
+        <ol className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          {workflow.stages.map((stage, index) => (
+            <li className="relative rounded-xl border border-zinc-800 bg-zinc-950/35 p-4" key={stage.key}>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-bold ${stage.complete ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-zinc-700 bg-zinc-900 text-zinc-500"}`}
+                >
+                  {stage.complete ? "✓" : index + 1}
+                </span>
+                <StatusBadge tone={stage.complete ? "success" : "neutral"}>
+                  {localizeValue(stage.complete ? "completed" : "pending", locale)}
+                </StatusBadge>
+              </div>
+              <p className="mt-3 text-sm font-semibold leading-5 text-zinc-200">{workflowLabels[stage.key]}</p>
+              {stage.occurredAt ? (
+                <time className="mt-2 block text-xs leading-5 text-zinc-500" dateTime={stage.occurredAt}>
+                  {formatDateTime(stage.occurredAt, locale)}
+                </time>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section className="overflow-hidden rounded-2xl border border-indigo-400/20 bg-indigo-950/20">
         <div className="border-b border-indigo-400/15 bg-indigo-400/5 px-5 py-4 sm:px-6">
@@ -114,7 +246,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <DetailField label={dictionary.detail.responsible}>{displayValue(lead.manager)}</DetailField>
             </dl>
           </div>
-          <div className="shrink-0 xl:pt-1">
+          <div className="flex shrink-0 flex-col items-stretch gap-3 xl:items-end xl:pt-1">
             {lead.crmStatus === "succeeded" ? (
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm font-medium text-emerald-200">
                 {dictionary.detail.fullySynced}
@@ -131,6 +263,17 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 }}
               />
             )}
+            {bitrixLeadUrl ? (
+              <a
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/10 px-4 py-2.5 text-sm font-semibold text-sky-200 transition hover:bg-sky-400/15"
+                href={bitrixLeadUrl}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                {dictionary.detail.openInBitrix}
+                <span aria-hidden="true" className="ml-2">↗</span>
+              </a>
+            ) : null}
           </div>
         </div>
       </section>
@@ -150,15 +293,19 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         ) : (
           <div className="mt-7 space-y-6">
             {lead.groups.map((group, groupIndex) => (
-              <article className="rounded-2xl border border-zinc-800 bg-zinc-950/35 p-4 sm:p-5" key={group.id}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-semibold">{dictionary.detail.conversation} {groupIndex + 1}</h3>
-                  <div className="flex flex-wrap gap-2">
+              <details className="group overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-950/35" key={group.id}>
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 transition hover:bg-zinc-900/60 sm:px-5">
+                  <div>
+                    <h3 className="font-semibold">{dictionary.detail.conversation} {groupIndex + 1}</h3>
+                    <p className="mt-1 text-xs text-zinc-500">{dictionary.detail.expandEvidence}</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge tone={statusTone(group.extractionState)}>{dictionary.detail.evidenceStatus}: {localizeValue(group.extractionState, locale)}</StatusBadge>
                     <StatusBadge tone={statusTone(group.canonicalizationState)}>{localizeValue(group.canonicalizationState, locale)}</StatusBadge>
+                    <span aria-hidden="true" className="ml-1 text-zinc-500 transition group-open:rotate-180">⌄</span>
                   </div>
-                </div>
-                <div className="relative mt-5 space-y-4 border-l border-zinc-800 pl-4 sm:pl-6">
+                </summary>
+                <div className="relative mx-4 mb-5 space-y-4 border-l border-t border-zinc-800 pl-4 pt-5 sm:mx-5 sm:pl-6">
                   {group.messages.map((message, messageIndex) => (
                     <div className="relative rounded-xl border border-zinc-800 bg-zinc-900/75 p-4" key={message.id}>
                       <span className="absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full border-2 border-zinc-950 bg-emerald-400 sm:-left-[29px]" aria-hidden="true" />
@@ -202,7 +349,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                     </div>
                   ))}
                 </div>
-              </article>
+              </details>
             ))}
           </div>
         )}
