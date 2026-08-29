@@ -52,8 +52,12 @@ The Russian analytical summary is stored in the Bitrix lead comments. Original T
 
 The modular monolith is deployed as a Next.js Web service and a single continuously running Worker on Railway, backed by Supabase/PostgreSQL, Auth, and private Storage. One worker replica is sufficient for this take-home; Kubernetes, Kafka, and microservices would add complexity without solving a current requirement.
 
-## 14. Known outbound Teams limitation
+## 14. Inbound support and outbound Entra permission boundary
 
-Inbound Teams → service processing works with app-only Graph authentication. Standard outbound channel feedback does not: the supplied client-credentials permissions do not provide a legitimate normal-send transport. A delegated flow, Teams bot, or supervisor-approved supported alternative is required. Migration APIs are explicitly rejected as a workaround.
+Inbound Teams processing uses app-only Microsoft Graph and is supported. The complete Teams → service → Bitrix path is supported and verified in production with a measured latency of **49.704 seconds**.
 
-`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND`
+Outbound service → Teams confirmation is architecturally planned but blocked by the current Microsoft Entra App Registration. Activation requires delegated Microsoft Graph `ChannelMessage.Send`, the Web redirect URI `https://web-production-633b2.up.railway.app/admin/integrations/teams/callback`, and Owner/Admin access to configure them. The currently supplied app-only transport cannot perform ordinary channel-message sends.
+
+Broad or unsupported permissions and migration APIs were intentionally rejected as workarounds, including `Group.ReadWrite.All`, `Teamwork.Migrate.All`, ROPC, and migration send endpoints.
+
+`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_ENTRA_APP_PERMISSIONS`

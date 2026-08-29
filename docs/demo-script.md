@@ -44,8 +44,14 @@ Explain:
 
 Show `docs/evaluation.md` or run `npm run evaluate`. State clearly: 60 synthetic messages, 22 expected/actual canonical leads, 0 false merges/splits, 0 replay duplicates, and 0 OpenAI calls because transcript/OCR evidence is pre-derived.
 
-## 4:30–5:00 — Deployment and limitation
+## 4:30–5:00 — Deployment and integration boundary
 
-Show Railway WEB and WORKER health. Close with the precise limitation: inbound Teams → service works; outbound feedback needs a legitimate delegated/bot transport because the supplied app-only authorization cannot perform normal channel sending.
+Show Railway WEB and WORKER health. Close with the precise status:
 
-`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND`
+- inbound Teams processing is supported;
+- Teams → service → Bitrix is supported and verified in production at **49.704 seconds**;
+- outbound service → Teams confirmation is architecturally planned but is `BLOCKED_BY_ENTRA_APP_PERMISSIONS`.
+
+Explain that activation requires delegated Microsoft Graph `ChannelMessage.Send`, the Web redirect URI `https://web-production-633b2.up.railway.app/admin/integrations/teams/callback`, and Owner/Admin access to the App Registration. The supplied app-only transport cannot send ordinary channel messages. Broad/unsupported permissions and migration APIs were deliberately not used as workarounds.
+
+`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_ENTRA_APP_PERMISSIONS`

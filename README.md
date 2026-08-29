@@ -136,10 +136,15 @@ Railway runs:
 
 The production Teams → Bitrix fixture completed automatically in **49.704 seconds**. Inbound ingestion, grouping, extraction, eligibility, canonicalization, Russian summary, Bitrix synchronization, and replay idempotency passed. Current manual deployment works; GitHub auto-deploy and the stale unapplied Railway UI patch are optional operational follow-ups, not correctness failures.
 
-## Known limitation
+## Teams integration status
 
-Inbound Teams → service processing works.
+- Inbound Teams processing: **SUPPORTED**.
+- Teams → service → Bitrix: **SUPPORTED AND VERIFIED IN PRODUCTION**.
+- Production Teams → Bitrix latency: **49.704 seconds**.
+- Outbound service → Teams confirmation: **BLOCKED_BY_ENTRA_APP_PERMISSIONS**.
 
-Outbound service → Teams feedback is blocked by the supplied client-credentials/app-only authorization. Standard channel sending requires a legitimate delegated/bot transport or a supervisor-approved supported alternative; migration APIs are not a valid workaround.
+Inbound Teams integration is operational. Outbound Teams feedback is architecturally planned, but it cannot be activated until an owner or administrator updates the Microsoft Entra App Registration with delegated Microsoft Graph `ChannelMessage.Send` and the Web redirect URI `https://web-production-633b2.up.railway.app/admin/integrations/teams/callback`. The currently supplied app-only transport does not support ordinary channel-message sending.
 
-`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND`
+Broad or unsupported permissions, migration APIs, and migration-only application permissions were intentionally not used as workarounds.
+
+`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_ENTRA_APP_PERMISSIONS`

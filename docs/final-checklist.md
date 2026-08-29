@@ -18,4 +18,8 @@
 - [x] Existing Bitrix leads and production idempotency verified read-only
 - [x] Evaluator admin retained; password must be set/reset manually before demo if unknown
 - [x] No credentials, production dumps, or real PII included
-- [x] Outbound Teams feedback limitation documented precisely
+- [x] Inbound Teams processing supported
+- [x] Teams → service → Bitrix supported and verified in production (49.704 seconds)
+- [x] Outbound Teams confirmation documented as `BLOCKED_BY_ENTRA_APP_PERMISSIONS`
+- [x] Required unblockers documented: delegated `ChannelMessage.Send`, production Web redirect URI, and App Registration Owner/Admin access
+- [x] No broad/unsupported permissions or migration APIs used as outbound-send workarounds
