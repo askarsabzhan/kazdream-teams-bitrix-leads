@@ -1,0 +1,21 @@
+# Final delivery checklist
+
+- [x] Repository on `main` with no Phase 8 branch or PR
+- [x] README includes architecture, setup, environment names, commands, evaluation, production, and limitations
+- [x] `.env.example` contains names/default model identifiers only; no credentials
+- [x] Local and linked migration history aligned (17 migrations)
+- [x] Lint and typecheck passed
+- [x] Unit suite passed (176 tests)
+- [x] Database suite passed (367 pgTAP assertions)
+- [x] Production build passed
+- [x] Synthetic evaluation passed (60 messages, 22 expected/actual canonical leads)
+- [x] Exact evaluation replay produced zero duplicate writes
+- [x] Core decisions document finalized
+- [x] AI-assisted development log finalized
+- [x] 3–5 minute demo script prepared
+- [x] Railway production URL documented
+- [x] Railway WEB and WORKER verified healthy
+- [x] Existing Bitrix leads and production idempotency verified read-only
+- [x] Evaluator admin retained; password must be set/reset manually before demo if unknown
+- [x] No credentials, production dumps, or real PII included
+- [x] Outbound Teams feedback limitation documented precisely

@@ -1,157 +1,145 @@
 # KazDream Teams → Bitrix Leads
 
-## Project purpose
+## Project overview
 
-This project processes exhibition lead evidence from Microsoft Teams into validated Bitrix24 leads. It includes durable Teams ingestion, secure attachment acquisition, derived transcript/OCR evidence, deterministic conversation grouping and extraction, canonical lead resolution, a durable Bitrix synchronization worker, and an authenticated lead-management UI.
+Microsoft Teams → Bitrix24 exhibition lead processing service. It discovers Teams channel history through Microsoft Graph, stores source evidence durably, processes private attachments, groups encounter conversations, extracts and validates lead data, deduplicates canonical visitors, generates a Russian analytical summary, and synchronizes eligible leads to Bitrix24.
 
-## Architecture overview
+Production UI: https://web-production-633b2.up.railway.app
 
-The production architecture is a TypeScript modular monolith deployed as two Railway services from the same repository: a Next.js Web process and one continuously running Worker process. Both use the linked Supabase PostgreSQL project as durable state. Microsoft Teams data enters directly through Microsoft Graph and reaches Bitrix24 through durable jobs and outboxes.
+## Architecture
 
-The adapted written specification contained a Power Automate section. The task owner later clarified that this candidate implementation should use the supplied Microsoft API credentials and integrate directly through Microsoft Graph.
+```text
+Teams → Microsoft Graph → ingestion → attachment processing → AI evidence
+      → deterministic grouping → structured extraction → canonicalization
+      → durable Bitrix outbox → Bitrix24
 
-Confirmed decisions are recorded in [docs/decisions.md](docs/decisions.md).
+Railway WEB    → Next.js UI/API
+Railway WORKER → bounded polling pipeline
+Supabase       → PostgreSQL, Auth, private Storage
+```
 
-## Local development
+The TypeScript modular monolith has separate Web and Worker entry points but one repository and one authoritative PostgreSQL state. Durable identities, leases, constraints, revision fingerprints, and outboxes make repeated Graph delivery and process restarts safe. A conversation group represents one manager encounter; a canonical lead may combine several encounters for the same visitor.
+
+See [engineering decisions](docs/decisions.md), [evaluation results](docs/evaluation.md), [AI development log](docs/ai-development-log.md), [demo script](docs/demo-script.md), and the [delivery checklist](docs/final-checklist.md).
+
+## Local setup
 
 Requirements:
 
-- Node.js 22 or newer (`file-type@22` requires Node.js `>=22`);
+- Node.js 22 or newer;
 - npm;
-- Docker Desktop with the Docker engine running for local Supabase commands.
-
-Install dependencies and start the development server:
+- Docker Desktop for local Supabase and pgTAP tests.
 
 ```bash
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
-The application is available at `http://localhost:3000`. Open `/login` to use the authenticated lead workspace. The liveness endpoint is `GET /api/health/live`.
+The local app is available at `http://localhost:3000`; the liveness endpoint is `GET /api/health/live`.
 
-Run one bounded production-pipeline iteration locally with `npm run worker:once`. Run the continuous worker with `npm run worker`.
+## Environment variable names
 
-## Environment variables
+Keep values only in `.env.local` or the deployment platform. Never commit credentials.
 
-Copy `.env.example` to `.env.local` and add values only for the feature being exercised. Empty integration variables do not prevent a normal build.
+- Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`
+- Microsoft Graph: `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TEAM_NAME`, `MS_CHANNEL_NAME`
+- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_EXTRACTION_MODEL`, `OPENAI_SUMMARY_MODEL`
+- Bitrix24: `BITRIX_WEBHOOK_BASE_URL`
+- Worker: `WORKER_POLL_INTERVAL_MS`
 
-Never commit `.env`, `.env.local`, access tokens, webhook URLs, or service-role keys. Server-only values must not be imported into browser code.
+Only the two `NEXT_PUBLIC_SUPABASE_*` values are browser-readable. Microsoft, OpenAI, Bitrix, database, and Supabase server credentials are server-only.
 
-Production uses these variable names:
+## Supabase setup and migrations
 
-- Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`;
-- Microsoft Graph: `MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MS_TEAM_NAME`, `MS_CHANNEL_NAME`;
-- OpenAI: `OPENAI_API_KEY`, `OPENAI_TRANSCRIPTION_MODEL`, `OPENAI_VISION_MODEL`, `OPENAI_EXTRACTION_MODEL`, `OPENAI_SUMMARY_MODEL`;
-- Bitrix24: `BITRIX_WEBHOOK_BASE_URL`;
-- worker runtime: `WORKER_POLL_INTERVAL_MS` (default `10000`, accepted range `5000`–`15000`).
-
-### Evaluator accounts
-
-There is no public registration UI. New Supabase Auth users still default to the `user` role. After applying all migrations, an operator with the local server environment can create or refresh one normal evaluator and one admin without committing passwords:
-
-```powershell
-$env:DEMO_USER_EMAIL = '<normal-user-email>'
-$env:DEMO_USER_PASSWORD = '<temporary-password-at-least-12-characters>'
-$env:DEMO_ADMIN_EMAIL = '<admin-email>'
-$env:DEMO_ADMIN_PASSWORD = '<temporary-password-at-least-12-characters>'
-npm.cmd run demo-users:create
-Remove-Item Env:DEMO_USER_EMAIL, Env:DEMO_USER_PASSWORD, Env:DEMO_ADMIN_EMAIL, Env:DEMO_ADMIN_PASSWORD
+```bash
+npx supabase start
+npx supabase db reset
+npm run test:db
 ```
 
-The command uses Supabase Admin Auth only on the server, promotes only the selected admin through a service-role-only database function, and prints aggregate status without identities or credentials.
+To use the linked project:
 
-## Testing
+```bash
+npx supabase login
+npx supabase link --project-ref <project-ref>
+npx supabase migration list --linked
+npx supabase db push --dry-run
+```
+
+Apply remote migrations only after reviewing the dry run. Do not edit already-applied migrations or commit Supabase credentials.
+
+## Worker
+
+Run one bounded iteration or the continuous loop:
+
+```bash
+npm run worker:once
+npm run worker
+```
+
+The production order is Teams ingestion, attachment acquisition, transcript/OCR evidence, grouping, extraction, canonicalization, and Bitrix synchronization. Worker logs contain only allow-listed event names, stages, numeric counts, durations, and safe error codes.
+
+## Useful commands
+
+```bash
+npm run graph:diagnose
+npm run teams:ingest
+npm run attachments:acquire
+npm run ai:evidence
+npm run group:conversations
+npm run groups:extract
+npm run groups:verify
+npm run leads:canonicalize
+npm run bitrix:discover
+npm run bitrix:sync
+```
+
+These are operational/debug commands. Do not run local processing commands against production merely to advance the deployed workflow; the Railway Worker owns normal processing.
+
+## Authentication and RBAC
+
+The Web application uses Supabase Auth. Authenticated `user` and `admin` roles can view leads and private evidence; `/admin` is admin-only. Public registration is not required. New users default safely to `user`; admin promotion is available only through the trusted server-side mechanism.
+
+The persistent evaluator admin account is intentionally retained for the demonstration. Set/reset the evaluator password manually in Supabase Authentication before demo.
+
+## Validation
 
 ```bash
 npm run lint
 npm run typecheck
 npm test
+npm run test:db
 npm run build
+git diff --check
+npx supabase db lint --local
+npx supabase db lint --linked
 ```
 
-Use `npm run test:watch` for focused development.
+## Synthetic evaluation
 
-## Conversation grouping
-
-`npm run group:conversations -- --limit=100` deterministically groups the bounded current Teams source set using explicit reply structure, exact normalized email/phone signals, and conservative labeled name/company hints. Only successful transcript/OCR evidence is included; unfinished evidence is deferred and terminal unavailable evidence is ignored. The command prints aggregate counts and protected PASS/FAIL assertions without source text or contact values.
-
-Grouping algorithm `v1` creates pre-lead manager-side encounter groups. It does not call OpenAI, extract canonical lead fields, deduplicate visitors across managers, create Bitrix records, or send Teams feedback. Repeating the command against unchanged source state is a persistence no-op.
-
-## Group candidate extraction
-
-`npm run groups:extract -- --limit 10 --lease-seconds 300` consumes only current `process_lead_group` jobs and performs one evidence-grounded Structured Outputs request for each claimed group identity. The command prints only aggregate counts, provider latency/usage, and protected PASS/FAIL checks. It never prints Teams text, transcripts, OCR, candidate values, names, phones, or emails.
-
-`OPENAI_EXTRACTION_MODEL` is server-only and defaults to `gpt-4o-mini`. Candidate extraction preserves source contact spelling, rejects invented evidence references and unsupported contact values, derives Partner/Customer and full-name-plus-phone eligibility deterministically, and stores campaign/source as configuration. It does not merge groups, create canonical leads, generate the final Russian summary, call Bitrix, or write Teams.
-
-## Canonical lead resolution
-
-`npm run leads:canonicalize` processes only eligible current group candidates. It uses exact normalized phone/email matches, with exact supported full-name-plus-company as a secondary key, and persists identity collisions without merging. Linked groups are recomposed into one canonical lead; reliable late evidence enriches union fields and the latest actual Teams contributor becomes responsible. A changed canonical revision receives one evidence-grounded Russian analytical summary through the fenced durable summary state machine. Exact replay creates no lead or revision and makes no OpenAI request.
-
-`OPENAI_SUMMARY_MODEL` is server-only and defaults to `gpt-4o-mini`. Operational output is aggregate and excludes source evidence, candidate values, names, phones, and emails. Phase 4D does not call Bitrix or write to Teams.
-
-## Bitrix synchronization
-
-`npm run bitrix:sync` performs read-only Bitrix discovery before claiming the durable CRM outbox. It validates the actual standard/custom fields, confirmed enumeration IDs, `EXHIBITION` source, Teams provenance fields, and user-directory access. If discovery differs from the confirmed contract, the command stops before CRM writes.
-
-The worker maps the latest Teams contributor through Microsoft Graph mail/UPN to one exact Bitrix user email, then performs remote idempotency lookup by an immutable primary conversation-group ID before add. Existing or recovered leads are updated, and `COMMENTS` receives the current Russian analytical summary. Original manager source remains separate in a deterministic revision-specific timeline comment. Output contains only discovery PASS/FAIL checks and aggregate created/updated/recovered/blocked/failed counts.
-
-## AI-derived attachment evidence
-
-`npm run ai:evidence -- --limit=3` processes only current, fetched, supported private attachment artifacts whose derived evidence identity is missing or outdated. Audio is transcribed with the configured OpenAI transcription model; images produce only strict visible-text evidence and a small document-type classification. The command prints aggregate PII-safe metrics and never prints transcript or image text.
-
-`OPENAI_API_KEY` is server-only. The configured defaults are `OPENAI_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe`, `OPENAI_VISION_MODEL=gpt-4o-mini`, `OPENAI_EXTRACTION_MODEL=gpt-4o-mini`, and `OPENAI_SUMMARY_MODEL=gpt-4o-mini`. The vision default is the tested compatible replacement for the originally intended `gpt-5-mini`, which was unavailable to the supplied OpenAI project.
-
-Phase 4A intentionally retains only the active AI-derived transcript/OCR revision. Original private attachment bytes and their SHA-256 remain immutable, while provider, model, operation, and prompt/schema metadata make the current result reproducible and unambiguous. Previous AI text revisions are not archived in this MVP; a separate versioned evidence table is the production extension if full AI-output history becomes required.
-
-## Microsoft Graph
-
-Direct Microsoft Graph integration is used by the ingestion and attachment workflows. `MS_TENANT_ID`, `MS_CLIENT_ID`, and `MS_CLIENT_SECRET` are server-only; no Microsoft credential may use a `NEXT_PUBLIC_` variable.
-
-## Selected test campaign
-
-The selected MVP test configuration is Hannover Messe 2026 with source `EXHIBITION` and the confirmed Bitrix exhibition value `63`. This records the intended test configuration only; it does not claim that a remote Bitrix campaign has already been configured or verified.
-
-## Supabase
-
-The repository contains local Supabase configuration and timestamped PostgreSQL migrations under `supabase/migrations/`. Link and migration credentials remain operator-local and must never be committed.
-
-With Docker running, start the local services and recreate the schema from migrations with:
+The isolated evaluator uses exactly 60 synthetic message events and ground truth for 22 expected canonical leads. It calls the production deterministic grouping, extraction-validation, and canonicalization functions with synthetic pre-derived transcript/OCR evidence. It does not call OpenAI, Supabase, Teams, Railway, or Bitrix.
 
 ```bash
-npx supabase start
-npx supabase db reset
+npm run evaluate
 ```
 
-New Auth users receive the `user` application role automatically, including users whose sign-up metadata asks for a different role. The documented demo-user command can promote only its selected admin through a service-role-only function. There is no public role-changing endpoint and no frontend role assignment.
+The runner performs one evaluation pass and one exact replay, then prints aggregate metrics only. It never sends evaluation CRM intents to Bitrix. See [docs/evaluation.md](docs/evaluation.md) for metric definitions and measured results.
 
-After explicit remote linking and review, an operator can inspect pending migrations with `npx supabase db push --dry-run` before applying them.
+## Production
 
-## Bitrix24
+Railway runs:
 
-The Bitrix24 adapter is server-only and writes exclusively through the durable CRM outbox worker. Browser requests never receive the webhook or call Bitrix synchronously.
+- `WEB`: `npm run start`, authenticated UI and liveness endpoint;
+- `WORKER`: `npm run worker`, one replica with integration credentials;
+- Supabase: linked PostgreSQL, Auth, and private attachment Storage.
 
-## Evaluation
+The production Teams → Bitrix fixture completed automatically in **49.704 seconds**. Inbound ingestion, grouping, extraction, eligibility, canonicalization, Russian summary, Bitrix synchronization, and replay idempotency passed. Current manual deployment works; GitHub auto-deploy and the stale unapplied Railway UI patch are optional operational follow-ups, not correctness failures.
 
-The ground-truth dataset and evaluation runner will be added in a later phase.
+## Known limitation
 
-## Production runtime
+Inbound Teams → service processing works.
 
-Railway runs two services from this repository on Node.js 22 or newer:
+Outbound service → Teams feedback is blocked by the supplied client-credentials/app-only authorization. Standard channel sending requires a legitimate delegated/bot transport or a supervisor-approved supported alternative; migration APIs are not a valid workaround.
 
-- Web starts with `npm run start`, exposes the authenticated UI and `GET /api/health/live`, and requires only the server variables used by web routes;
-- Worker starts with `npm run worker`, has all integration variables, and has no public domain;
-- Supabase provides authoritative PostgreSQL state, Auth, and private attachment storage.
-
-Each bounded worker iteration reuses the existing workers in this order:
-
-`Teams → attachments → AI evidence → grouping → extraction → canonicalization → Bitrix`
-
-The worker catches up recent Teams history at startup, then polls every `WORKER_POLL_INTERVAL_MS`. Durable database identities, leases, constraints, and outboxes make replay safe. The take-home deployment intentionally runs exactly one Worker replica; horizontal worker coordination is outside this MVP.
-
-One-shot diagnostics remain available through the existing commands such as `npm run graph:diagnose`, `npm run teams:ingest`, and `npm run worker:once`.
-
-Standard Microsoft Graph channel-message sending is unavailable to the current app-only client-credentials setup. No migration API or unsupported send workaround is used. `TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND` until a legitimate delegated or otherwise supported send transport is supplied.
-
-## Security baseline
-
-Application logs must not contain HTTP request bodies, Teams text, transcripts, OCR output, visitor PII, or secrets. Production worker logs contain only stage names, aggregate numeric counts, durations, and allow-listed safe error codes.
+`TEAMS_FEEDBACK_STATUS=BLOCKED_BY_APP_ONLY_SEND`
