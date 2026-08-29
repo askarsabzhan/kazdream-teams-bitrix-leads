@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #09090b;
+  --background: #080b0e;
   --foreground: #f4f4f5;
   color-scheme: dark;
 }
@@ -23,6 +23,22 @@ button,
 input,
 select {
   font: inherit;
+}
+
+button,
+a,
+input,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(52 211 153 / 0.9);
+  outline-offset: 3px;
+}
+
+input::placeholder {
+  color: rgb(113 113 122);
 }
 
 ::selection {

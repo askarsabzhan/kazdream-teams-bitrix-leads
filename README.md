@@ -103,6 +103,8 @@ The Web application uses Supabase Auth. Authenticated `user` and `admin` roles c
 
 The persistent evaluator admin account is intentionally retained for the demonstration. Set/reset the evaluator password manually in Supabase Authentication before demo.
 
+The UI is available in Russian (default) and English. The selected language is persisted in the server-readable `ui_locale` cookie, so authenticated and public pages render directly in the chosen locale without changing their URLs.
+
 ## Validation
 
 ```bash

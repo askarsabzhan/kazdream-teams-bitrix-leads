@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { getI18n } from "@/i18n/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const loginSchema = z.object({
@@ -16,19 +17,20 @@ export async function loginAction(
   _previousState: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
+  const { dictionary } = await getI18n();
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
   });
 
   if (!parsed.success) {
-    return { error: "Введите корректные email и пароль." };
+    return { error: dictionary.auth.invalidInput };
   }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) {
-    return { error: "Не удалось войти. Проверьте данные и повторите попытку." };
+    return { error: dictionary.auth.invalidCredentials };
   }
 
   redirect("/leads");
