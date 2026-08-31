@@ -10,7 +10,9 @@ function NavIcon({ kind }: { kind: "leads" | "admin" }) {
     </svg>
   ) : (
     <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-      <path d="M4 7h16M7 4v6m10-6v6M5 12h6v7H5v-7Zm10 0h4v3h-4v-3Zm0 6h4v1h-4v-1Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" />
+      <path d="M12 2.75v2M12 19.25v2M21.25 12h-2M4.75 12h-2M18.54 5.46l-1.42 1.42M6.88 17.12l-1.42 1.42M18.54 18.54l-1.42-1.42M6.88 6.88 5.46 5.46" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="5.25" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="1.75" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
 }
