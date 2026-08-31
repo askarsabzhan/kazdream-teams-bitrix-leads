@@ -53,8 +53,12 @@ describe("UI locale", () => {
     expect(getDictionary("ru").detail.receivedFromTeams).toBe("Получено из Teams");
     expect(getDictionary("ru").detail.evidenceBusinessRule).toBe("Бизнес-правило");
     expect(getDictionary("ru").detail.copy).toBe("Скопировать");
+    expect(getDictionary("ru").detail.noMessageText).toBe("Текст сообщения отсутствует");
+    expect(getDictionary("ru").detail.attachmentOnlyMessage).toBe("Сообщение содержит только вложение.");
     expect(getDictionary("en").detail.receivedFromTeams).toBe("Received from Teams");
     expect(getDictionary("en").detail.evidenceBusinessRule).toBe("Business rule");
     expect(getDictionary("en").detail.copy).toBe("Copy");
+    expect(getDictionary("en").detail.noMessageText).toBe("No message text");
+    expect(getDictionary("en").detail.attachmentOnlyMessage).toBe("This message contains an attachment only.");
   });
 });

@@ -18,6 +18,7 @@ import {
   formatDateTime,
   localizeValue,
 } from "@/modules/leads/ui/format";
+import { presentSourceMessage } from "@/modules/leads/ui/source-message";
 import {
   buildLeadWorkflow,
   type WorkflowStageKey,
@@ -306,48 +307,60 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   </div>
                 </summary>
                 <div className="relative mx-4 mb-5 space-y-4 border-l border-t border-zinc-800 pl-4 pt-5 sm:mx-5 sm:pl-6">
-                  {group.messages.map((message, messageIndex) => (
-                    <div className="relative rounded-xl border border-zinc-800 bg-zinc-900/75 p-4" key={message.id}>
-                      <span className="absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full border-2 border-zinc-950 bg-emerald-400 sm:-left-[29px]" aria-hidden="true" />
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
-                        <span className="font-semibold text-zinc-400">{message.replyToExternalId ? dictionary.detail.reply : dictionary.detail.originalTeamsMessage}</span>
-                        <time dateTime={message.createdAt}>{formatDateTime(message.createdAt, locale)}</time>
-                      </div>
-                      <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{displayValue(message.text)}</p>
-                      {message.attachments.map((attachment) => (
-                        <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4" key={attachment.id}>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <p className="break-all text-sm font-medium">{displayValue(attachment.fileName)}</p>
-                            <StatusBadge tone={statusTone(attachment.processingState)}>{localizeValue(attachment.processingState, locale)}</StatusBadge>
-                          </div>
-                          {attachment.transcript ? (
-                            <div className="rounded-xl border border-sky-400/15 bg-sky-950/20 p-4">
-                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-300">{dictionary.detail.transcription}</p>
-                              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{attachment.transcript}</p>
-                            </div>
-                          ) : null}
-                          {attachment.ocr ? (
-                            <div className="rounded-xl border border-amber-400/15 bg-amber-950/20 p-4">
-                              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">{dictionary.detail.ocr}</p>
-                              <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{attachment.ocr}</p>
-                            </div>
-                          ) : null}
-                          {attachment.canPreview ? (
-                            <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
-                              <Image
-                                alt={`${dictionary.detail.sourceImage} ${messageIndex + 1}`}
-                                className="h-auto max-h-[720px] w-full object-contain"
-                                height={720}
-                                src={`/api/attachments/${attachment.id}/preview`}
-                                unoptimized
-                                width={1280}
-                              />
-                            </div>
-                          ) : null}
+                  {group.messages.map((message, messageIndex) => {
+                    const sourceMessage = presentSourceMessage(message.text);
+
+                    return (
+                      <div className="relative rounded-xl border border-zinc-800 bg-zinc-900/75 p-4" key={message.id}>
+                        <span className="absolute -left-[21px] top-5 h-2.5 w-2.5 rounded-full border-2 border-zinc-950 bg-emerald-400 sm:-left-[29px]" aria-hidden="true" />
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500">
+                          <span className="font-semibold text-zinc-400">
+                            {sourceMessage.hasText
+                              ? message.replyToExternalId
+                                ? dictionary.detail.reply
+                                : dictionary.detail.originalTeamsMessage
+                              : dictionary.detail.noMessageText}
+                          </span>
+                          <time dateTime={message.createdAt}>{formatDateTime(message.createdAt, locale)}</time>
                         </div>
-                      ))}
-                    </div>
-                  ))}
+                        <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">
+                          {sourceMessage.hasText ? sourceMessage.text : dictionary.detail.attachmentOnlyMessage}
+                        </p>
+                        {message.attachments.map((attachment) => (
+                          <div className="mt-4 space-y-3 border-t border-zinc-800 pt-4" key={attachment.id}>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="break-all text-sm font-medium">{displayValue(attachment.fileName)}</p>
+                              <StatusBadge tone={statusTone(attachment.processingState)}>{localizeValue(attachment.processingState, locale)}</StatusBadge>
+                            </div>
+                            {attachment.transcript ? (
+                              <div className="rounded-xl border border-sky-400/15 bg-sky-950/20 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-300">{dictionary.detail.transcription}</p>
+                                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{attachment.transcript}</p>
+                              </div>
+                            ) : null}
+                            {attachment.ocr ? (
+                              <div className="rounded-xl border border-amber-400/15 bg-amber-950/20 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-300">{dictionary.detail.ocr}</p>
+                                <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-zinc-200">{attachment.ocr}</p>
+                              </div>
+                            ) : null}
+                            {attachment.canPreview ? (
+                              <div className="overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
+                                <Image
+                                  alt={`${dictionary.detail.sourceImage} ${messageIndex + 1}`}
+                                  className="h-auto max-h-[720px] w-full object-contain"
+                                  height={720}
+                                  src={`/api/attachments/${attachment.id}/preview`}
+                                  unoptimized
+                                  width={1280}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </details>
             ))}

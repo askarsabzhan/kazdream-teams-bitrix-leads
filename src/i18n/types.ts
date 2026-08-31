@@ -109,6 +109,8 @@ export type Dictionary = {
     conversation: string;
     evidenceStatus: string;
     originalTeamsMessage: string;
+    noMessageText: string;
+    attachmentOnlyMessage: string;
     reply: string;
     transcription: string;
     ocr: string;
