@@ -3,6 +3,8 @@ import "server-only";
 import { readServerEnvironment } from "@/lib/env/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+import { buildIntegrationHealth } from "./integration-health";
+
 type QueueName = "processing_jobs" | "crm_outbox" | "teams_notifications";
 
 export type AdminDashboard = {
@@ -32,7 +34,14 @@ export async function loadAdminDashboard(): Promise<AdminDashboard> {
   const environment = readServerEnvironment();
   const supabase = await createSupabaseServerClient();
 
-  const [campaignResult, managersResult, referencesResult] = await Promise.all([
+  const [
+    campaignResult,
+    managersResult,
+    referencesResult,
+    teamsEvidenceResult,
+    openAIEvidenceResult,
+    bitrixEvidenceResult,
+  ] = await Promise.all([
     supabase
       .from("campaigns")
       .select("name, source_id, exhibition_bitrix_id, is_active")
@@ -47,9 +56,19 @@ export async function loadAdminDashboard(): Promise<AdminDashboard> {
       .select("field_type, canonical_key, display_label, bitrix_value_id, is_active")
       .order("field_type", { ascending: true })
       .order("canonical_key", { ascending: true }),
+    supabase.from("teams_messages").select("id").limit(1),
+    supabase.from("leads").select("id").eq("summary_state", "succeeded").limit(1),
+    supabase.from("leads").select("id").not("bitrix_lead_id", "is", null).limit(1),
   ]);
 
-  if (campaignResult.error || managersResult.error || referencesResult.error) {
+  if (
+    campaignResult.error ||
+    managersResult.error ||
+    referencesResult.error ||
+    teamsEvidenceResult.error ||
+    openAIEvidenceResult.error ||
+    bitrixEvidenceResult.error
+  ) {
     throw new Error("Unable to load admin configuration.");
   }
 
@@ -65,20 +84,22 @@ export async function loadAdminDashboard(): Promise<AdminDashboard> {
   );
 
   return {
-    health: [
-      {
-        name: "Microsoft Graph",
-        configured: Boolean(environment.MS_TENANT_ID && environment.MS_CLIENT_ID && environment.MS_CLIENT_SECRET),
-      },
-      { name: "OpenAI", configured: Boolean(environment.OPENAI_API_KEY) },
-      {
-        name: "Supabase",
-        configured: Boolean(
+    health: buildIntegrationHealth({
+      environment: {
+        teams: Boolean(environment.MS_TENANT_ID && environment.MS_CLIENT_ID && environment.MS_CLIENT_SECRET),
+        openAI: Boolean(environment.OPENAI_API_KEY),
+        supabase: Boolean(
           environment.NEXT_PUBLIC_SUPABASE_URL && environment.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
         ),
+        bitrix: Boolean(environment.BITRIX_WEBHOOK_BASE_URL),
       },
-      { name: "Bitrix", configured: Boolean(environment.BITRIX_WEBHOOK_BASE_URL) },
-    ],
+      persisted: {
+        supabaseConnected: true,
+        hasTeamsMessages: Boolean(teamsEvidenceResult.data?.length),
+        hasOpenAISuccess: Boolean(openAIEvidenceResult.data?.length),
+        hasBitrixSuccess: Boolean(bitrixEvidenceResult.data?.length),
+      },
+    }),
     campaign: campaignResult.data
       ? {
           name: campaignResult.data.name,
