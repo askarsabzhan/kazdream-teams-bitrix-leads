@@ -18,6 +18,7 @@ import {
   formatDateTime,
   localizeValue,
 } from "@/modules/leads/ui/format";
+import { buildLeadHeaderBadges } from "@/modules/leads/ui/header-badges";
 import { presentSourceMessage } from "@/modules/leads/ui/source-message";
 import {
   buildLeadWorkflow,
@@ -102,6 +103,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       sources={lead.evidenceSources[fieldName] ?? []}
     />
   );
+  const headerBadges = buildLeadHeaderBadges({
+    leadType: lead.leadType,
+    priority: lead.priority,
+    crmStatus: lead.crmStatus,
+  });
 
   return (
     <div className="space-y-7">
@@ -119,9 +125,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <p className="mt-2 text-sm text-zinc-500">{dictionary.detail.responsible}: <span className="text-zinc-300">{displayValue(lead.manager)}</span></p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <StatusBadge tone={statusTone(lead.leadType)}>{localizeValue(lead.leadType, locale)}</StatusBadge>
-            <StatusBadge tone={statusTone(lead.priority ?? "")}>{localizeValue(lead.priority, locale)}</StatusBadge>
-            <StatusBadge tone={statusTone(lead.crmStatus)}>{localizeValue(lead.crmStatus, locale)}</StatusBadge>
+            {headerBadges.map((badge) => (
+              <StatusBadge key={badge.key} tone={statusTone(badge.value)}>
+                {localizeValue(badge.value, locale)}
+              </StatusBadge>
+            ))}
           </div>
         </div>
       </header>
@@ -166,7 +174,9 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">{dictionary.detail.classification}</p>
           <dl className="mt-6 grid gap-x-6 gap-y-6 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
             <DetailField badges={badgesFor("lead_type")} label={dictionary.detail.leadType}>{localizeValue(lead.leadType, locale)}</DetailField>
-            <DetailField badges={badgesFor("priority")} label={dictionary.detail.priority}>{localizeValue(lead.priority, locale)}</DetailField>
+            <DetailField badges={badgesFor("priority")} label={dictionary.detail.priority}>
+              {lead.priority?.trim() ? localizeValue(lead.priority, locale) : dictionary.detail.notSpecified}
+            </DetailField>
             <DetailField badges={badgesFor("region")} label={dictionary.detail.region}>{localizeValue(lead.region, locale)}</DetailField>
             <DetailField badges={badgesFor("product_interests")} label={dictionary.detail.productInterests}>
               {lead.productInterests.length

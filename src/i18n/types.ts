@@ -84,6 +84,7 @@ export type Dictionary = {
     leadType: string;
     region: string;
     priority: string;
+    notSpecified: string;
     productInterests: string;
     aiSummary: string;
     aiSummaryTitle: string;
